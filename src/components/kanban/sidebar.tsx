@@ -14,27 +14,36 @@ import {
     Inbox,
     Users,
     Layout,
-    Trash2
+    Trash2,
+    LogOut,
+    User
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useKanbanStore } from "@/lib/store"
+import { useAuth } from "@/components/auth/auth-provider"
 import { CreateBoardModal } from "./create-board-modal"
 import { ConfirmDeleteModal } from "./confirm-delete-modal"
+import { UserProfileModal } from "@/components/auth/user-profile-modal"
+import { useTranslation } from "@/hooks/use-translation"
 
 export function KanbanSidebar() {
     const [collapsed, setCollapsed] = useState(false)
     const [activeNav, setActiveNav] = useState("board")
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+    const [isProfileModalOpen, setIsProfileModalOpen] = useState(false)
     const [boardToDelete, setBoardToDelete] = useState<{ id: string, name: string } | null>(null)
 
     const { boards, activeBoardId, setActiveBoard, createBoard, deleteBoard } = useKanbanStore()
+    const { user, signOut } = useAuth()
+    const { t } = useTranslation()
+    const userInitial = user?.email?.[0].toUpperCase() || "U"
 
     const navItems = [
-        { id: "search", label: "Search", icon: Search },
-        { id: "board", label: "My Boards", icon: LayoutDashboard },
-        { id: "tasks", label: "My Tasks", icon: CheckSquare },
-        { id: "inbox", label: "Inbox", icon: Inbox, badge: 3 },
-        { id: "team", label: "Team", icon: Users },
+        { id: "search", label: t('sidebar.search'), icon: Search },
+        { id: "board", label: t('sidebar.myBoards'), icon: LayoutDashboard },
+        { id: "tasks", label: t('sidebar.myTasks'), icon: CheckSquare },
+        { id: "inbox", label: t('sidebar.inbox'), icon: Inbox, badge: 3 },
+        { id: "team", label: t('sidebar.team'), icon: Users },
     ]
 
     const handleCreateBoard = (name: string) => {
@@ -100,13 +109,13 @@ export function KanbanSidebar() {
                     <div className="pt-6">
                         <div className="flex items-center justify-between px-3 mb-2">
                             <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.1em]">
-                                Your Boards
+                                {t('sidebar.yourBoards')}
                             </span>
                             <button
                                 type="button"
                                 onClick={() => setIsCreateModalOpen(true)}
                                 className="p-1 rounded-md hover:bg-sidebar-accent text-muted-foreground hover:text-foreground transition-all duration-200"
-                                title="Create board"
+                                title={t('sidebar.createBoard')}
                             >
                                 <Plus className="w-3.5 h-3.5" />
                             </button>
@@ -144,21 +153,38 @@ export function KanbanSidebar() {
                             ))}
 
                             {boards.length === 0 && (
-                                <p className="px-3 py-2 text-xs text-muted-foreground italic">No boards yet</p>
+                                <p className="px-3 py-2 text-xs text-muted-foreground italic">{t('sidebar.noBoards')}</p>
                             )}
                         </div>
                     </div>
                 )}
             </nav>
 
-            {/* Bottom section */}
-            <div className="border-t border-sidebar-border p-2">
+            {/* Bottom section: User Profile & Settings */}
+            <div className="border-t border-sidebar-border p-3 space-y-2">
+                {!collapsed && user && (
+                    <button
+                        type="button"
+                        onClick={() => setIsProfileModalOpen(true)}
+                        className="flex items-center gap-3 w-full px-2 py-2 mb-2 bg-sidebar-accent/30 rounded-xl border border-white/5 hover:bg-sidebar-accent/50 hover:border-white/10 transition-all duration-200 group text-left"
+                    >
+                        <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-blue-600 text-[10px] font-black text-white shadow-lg shadow-primary/20 group-hover:scale-105 transition-transform">
+                            {userInitial}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <p className="text-[10px] font-black text-foreground uppercase tracking-wider truncate">{t('sidebar.user')}</p>
+                            <p className="text-[10px] text-muted-foreground truncate group-hover:text-primary transition-colors">{user.email}</p>
+                        </div>
+                    </button>
+                )}
+
                 <button
                     type="button"
-                    className="flex items-center gap-3 w-full rounded-lg px-3 py-2 text-sm text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground transition-colors duration-150"
+                    onClick={() => signOut()}
+                    className="flex items-center gap-3 w-full rounded-lg px-3 py-2 text-sm text-red-400 hover:bg-red-400/10 hover:text-red-300 transition-all duration-150"
                 >
-                    <Settings className="w-4 h-4 shrink-0" />
-                    {!collapsed && <span>Settings</span>}
+                    <LogOut className="w-4 h-4 shrink-0" />
+                    {!collapsed && <span className="font-medium">{t('sidebar.logout')}</span>}
                 </button>
             </div>
 
@@ -185,8 +211,13 @@ export function KanbanSidebar() {
                 isOpen={!!boardToDelete}
                 onClose={() => setBoardToDelete(null)}
                 onConfirm={handleDeleteBoard}
-                title="Delete Board"
-                description={`Are you sure you want to delete "${boardToDelete?.name}"? This action cannot be undone.`}
+                title={t('board.deleteTitle')}
+                description={t('board.deleteConfirm', { name: boardToDelete?.name || '' }) + ' ' + t('board.deleteWarning')}
+            />
+
+            <UserProfileModal
+                open={isProfileModalOpen}
+                onOpenChange={setIsProfileModalOpen}
             />
         </aside>
     )

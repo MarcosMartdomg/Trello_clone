@@ -27,6 +27,7 @@ import { KanbanCard } from "./kanban-card"
 import { TagFilters } from "./board-filters"
 import { Button } from "@/components/ui/button"
 import { CreateBoardModal } from "./create-board-modal"
+import { useTranslation } from "@/hooks/use-translation"
 import type { KanbanCard as KanbanCardType, KanbanColumn as KanbanColumnType } from "@/lib/kanban-data"
 
 export function KanbanBoard() {
@@ -37,6 +38,7 @@ export function KanbanBoard() {
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
     const [isAddingColumn, setIsAddingColumn] = useState(false)
     const [newColumnTitle, setNewColumnTitle] = useState("")
+    const { t } = useTranslation()
 
     useEffect(() => {
         setIsMounted(true)
@@ -124,9 +126,9 @@ export function KanbanBoard() {
                 <div className="w-20 h-20 rounded-3xl bg-primary/10 flex items-center justify-center mb-6 border border-primary/20">
                     <LayoutPanelLeft className="w-10 h-10 text-primary" />
                 </div>
-                <h1 className="text-3xl font-bold tracking-tight mb-2">Welcome to FlowBoard</h1>
+                <h1 className="text-3xl font-bold tracking-tight mb-2">{t('board.welcomeTitle')}</h1>
                 <p className="text-muted-foreground max-w-md mb-8">
-                    Create your first workspace to start organizing your tasks, managing priorities, and boosting your productivity.
+                    {t('board.welcomeSub')}
                 </p>
                 <Button
                     size="lg"
@@ -134,7 +136,7 @@ export function KanbanBoard() {
                     className="gap-2 shadow-lg shadow-primary/20"
                 >
                     <Plus className="w-4 h-4" />
-                    Create your first board
+                    {t('board.firstBoard')}
                 </Button>
             </div>
         )
@@ -174,7 +176,7 @@ export function KanbanBoard() {
                                         }
                                     }
                                 }}
-                                placeholder="Column title..."
+                                placeholder={t('board.columnTitle')}
                                 className="w-full bg-transparent text-sm font-semibold text-foreground placeholder:text-muted-foreground outline-none px-1 py-1"
                             />
                             <div className="flex items-center gap-2 mt-3 justify-end">
@@ -186,7 +188,7 @@ export function KanbanBoard() {
                                         setNewColumnTitle("")
                                     }}
                                 >
-                                    Cancel
+                                    {t('common.cancel')}
                                 </Button>
                                 <Button
                                     size="sm"
@@ -198,7 +200,7 @@ export function KanbanBoard() {
                                         }
                                     }}
                                 >
-                                    Add Column
+                                    {t('board.addColumn')}
                                 </Button>
                             </div>
                         </div>
@@ -209,7 +211,7 @@ export function KanbanBoard() {
                             className="flex items-center gap-2 w-[300px] shrink-0 h-12 px-4 rounded-xl border border-dashed border-border text-sm font-medium text-muted-foreground hover:text-foreground hover:border-primary/50 hover:bg-column transition-all duration-200"
                         >
                             <Plus className="w-4 h-4" />
-                            <span>Add column</span>
+                            <span>{t('board.addColumn')}</span>
                         </button>
                     )}
                 </div>

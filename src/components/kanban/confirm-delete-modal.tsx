@@ -10,6 +10,7 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { useTranslation } from "@/hooks/use-translation"
 
 interface ConfirmDeleteModalProps {
     isOpen: boolean
@@ -26,6 +27,7 @@ export function ConfirmDeleteModal({
     title,
     description,
 }: ConfirmDeleteModalProps) {
+    const { t } = useTranslation()
     return (
         <AlertDialog open={isOpen} onOpenChange={onClose}>
             <AlertDialogContent>
@@ -34,12 +36,12 @@ export function ConfirmDeleteModal({
                     <AlertDialogDescription>{description}</AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                    <AlertDialogCancel onClick={onClose}>Cancel</AlertDialogCancel>
+                    <AlertDialogCancel onClick={onClose}>{t('common.cancel')}</AlertDialogCancel>
                     <AlertDialogAction
                         onClick={onConfirm}
                         className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                     >
-                        Delete
+                        {t('common.delete')}
                     </AlertDialogAction>
                 </AlertDialogFooter>
             </AlertDialogContent>

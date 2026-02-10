@@ -3,6 +3,7 @@
 import { X } from "lucide-react"
 import { useKanbanStore } from "@/lib/store"
 import { cn } from "@/lib/utils"
+import { useTranslation } from "@/hooks/use-translation"
 
 const AVAILABLE_TAGS = [
     "Research",
@@ -18,10 +19,11 @@ const AVAILABLE_TAGS = [
 
 export function TagFilters() {
     const { tagFilter, toggleTagFilter } = useKanbanStore()
+    const { t } = useTranslation()
 
     return (
         <div className="flex flex-wrap items-center gap-2 px-6 py-2 bg-background/50 backdrop-blur-sm border-b border-border shrink-0">
-            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mr-1">Filter by:</span>
+            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mr-1">{t('board.filterBy')}</span>
             {AVAILABLE_TAGS.map((tag) => {
                 const isActive = tagFilter.includes(tag)
                 return (
@@ -35,7 +37,7 @@ export function TagFilters() {
                                 : "bg-secondary text-muted-foreground border-transparent hover:border-border hover:text-foreground"
                         )}
                     >
-                        {tag}
+                        {t(`tags.${tag}`)}
                     </button>
                 )
             })}
@@ -46,7 +48,7 @@ export function TagFilters() {
                     className="px-2 py-1 text-[11px] text-muted-foreground hover:text-destructive transition-colors ml-2 flex items-center gap-1"
                 >
                     <X className="w-3 h-3" />
-                    Clear
+                    {t('board.clear')}
                 </button>
             )}
         </div>

@@ -11,6 +11,7 @@ import type { KanbanColumn as KanbanColumnType, KanbanCard as KanbanCardType } f
 import { KanbanCard } from "./kanban-card"
 import { useKanbanStore } from "@/lib/store"
 import { ConfirmDeleteModal } from "./confirm-delete-modal"
+import { useTranslation } from "@/hooks/use-translation"
 
 const iconMap: Record<string, React.ElementType> = {
   inbox: Inbox,
@@ -40,6 +41,7 @@ export function KanbanColumnComponent({ column, isOverlay }: KanbanColumnProps) 
   const [isEditingTitle, setIsEditingTitle] = useState(false)
   const [title, setTitle] = useState(column.title)
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
+  const { t } = useTranslation()
 
   const titleInputRef = useRef<HTMLInputElement>(null)
 
@@ -125,7 +127,7 @@ export function KanbanColumnComponent({ column, isOverlay }: KanbanColumnProps) 
               className="text-sm font-semibold text-foreground truncate cursor-pointer hover:bg-accent/50 px-1 -ml-1 rounded transition-colors"
               title="Click to edit"
             >
-              {column.title}
+              {t(`board.${column.id}`) !== `board.${column.id}` ? t(`board.${column.id}`) : column.title}
             </h3>
           )}
 
@@ -143,7 +145,7 @@ export function KanbanColumnComponent({ column, isOverlay }: KanbanColumnProps) 
       </div>
 
       {/* Cards area */}
-      <div className="flex-1 px-2 pb-2 space-y-2 overflow-y-auto overflow-x-hidden min-h-[100px]">
+      <div className="flex-1 px-2 pb-2 pt-2 space-y-2 overflow-y-auto overflow-x-hidden min-h-[100px]">
         <SortableContext items={column.cards.map((c: KanbanCardType) => c.id)} strategy={verticalListSortingStrategy}>
           {column.cards.map((card: KanbanCardType) => (
             <KanbanCard key={card.id} card={card} columnTitle={column.title} />
@@ -166,7 +168,7 @@ export function KanbanColumnComponent({ column, isOverlay }: KanbanColumnProps) 
                   handleAddCard()
                 }
               }}
-              placeholder="Task title..."
+              placeholder={t('board.taskTitle')}
               className="w-full bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none resize-none"
             />
             <div className="flex items-center gap-2 mt-3 justify-end">
@@ -178,14 +180,14 @@ export function KanbanColumnComponent({ column, isOverlay }: KanbanColumnProps) 
                 }}
                 className="px-3 py-1.5 text-xs font-medium rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
               >
-                Cancel
+                {t('common.cancel')}
               </button>
               <button
                 type="button"
                 onClick={handleAddCard}
                 className="px-3 py-1.5 text-xs font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shadow-sm"
               >
-                Add Card
+                {t('board.addCard')}
               </button>
             </div>
           </div>
@@ -199,7 +201,7 @@ export function KanbanColumnComponent({ column, isOverlay }: KanbanColumnProps) 
             className="flex items-center gap-2 w-full px-3 py-2 rounded-xl text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent/30 transition-all duration-200 group mt-1"
           >
             <Plus className="w-3.5 h-3.5" />
-            <span>Add card</span>
+            <span>{t('board.addCard')}</span>
           </button>
         )}
       </div>
@@ -208,8 +210,8 @@ export function KanbanColumnComponent({ column, isOverlay }: KanbanColumnProps) 
         isOpen={isDeleteModalOpen}
         onClose={() => setIsDeleteModalOpen(false)}
         onConfirm={() => deleteColumn(column.id)}
-        title="Delete Column"
-        description={`Are you sure you want to delete the "${column.title}" column? All cards within it will be permanently deleted.`}
+        title={t('board.deleteTitle')}
+        description={t('board.deleteConfirm', { name: column.title }) + ' ' + t('board.deleteWarning')}
       />
     </div>
   )

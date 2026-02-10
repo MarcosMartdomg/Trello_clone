@@ -4,6 +4,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { useTranslation } from "@/hooks/use-translation"
 
 interface CreateBoardModalProps {
     isOpen: boolean
@@ -13,6 +14,7 @@ interface CreateBoardModalProps {
 
 export function CreateBoardModal({ isOpen, onClose, onCreate }: CreateBoardModalProps) {
     const [boardName, setBoardName] = useState("")
+    const { t } = useTranslation()
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault()
@@ -28,29 +30,29 @@ export function CreateBoardModal({ isOpen, onClose, onCreate }: CreateBoardModal
             <DialogContent className="sm:max-w-[425px]">
                 <form onSubmit={handleSubmit}>
                     <DialogHeader>
-                        <DialogTitle>Create New Board</DialogTitle>
+                        <DialogTitle>{t('board.createTitle')}</DialogTitle>
                         <DialogDescription>
-                            Give your new workspace a name to get started.
+                            {t('board.boardName')}
                         </DialogDescription>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
                         <div className="grid gap-2">
-                            <Label htmlFor="name">Board Name</Label>
+                            <Label htmlFor="name">{t('board.boardName')}</Label>
                             <Input
                                 id="name"
                                 value={boardName}
                                 onChange={(e) => setBoardName(e.target.value)}
-                                placeholder="e.g. Marketing Campaign"
+                                placeholder={t('board.placeholder')}
                                 autoFocus
                             />
                         </div>
                     </div>
                     <DialogFooter>
                         <Button type="button" variant="outline" onClick={onClose}>
-                            Cancel
+                            {t('common.cancel')}
                         </Button>
                         <Button type="submit" disabled={!boardName.trim()}>
-                            Create Board
+                            {t('board.createTitle')}
                         </Button>
                     </DialogFooter>
                 </form>

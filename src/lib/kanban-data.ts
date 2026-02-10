@@ -20,6 +20,7 @@ export interface ChecklistItem {
 export interface ActivityLog {
   id: string
   text: string
+  params?: Record<string, string>
   type: 'move' | 'create' | 'edit' | 'addon'
   timestamp: number
 }
@@ -92,7 +93,7 @@ export const mockBoards: Board[] = [
             members: [mockMembers[0]],
             priority: "medium",
             activity: [
-              { id: "a1", text: "Created card", type: "create", timestamp: Date.now() - 86400000 }
+              { id: "a1", text: "board.createdCard", type: "create", timestamp: Date.now() - 86400000 }
             ]
           },
         ],

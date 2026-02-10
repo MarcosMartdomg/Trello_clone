@@ -22,6 +22,7 @@ interface KanbanState {
     activeBoardId: string | null;
     searchQuery: string;
     tagFilter: string[];
+    language: 'es' | 'en';
 
     // Actions
     createBoard: (name: string) => void;
@@ -40,6 +41,7 @@ interface KanbanState {
     deleteColumn: (columnId: string) => void;
     setSearchQuery: (query: string) => void;
     toggleTagFilter: (tag: string) => void;
+    setLanguage: (lang: 'es' | 'en') => void;
 }
 
 export const useKanbanStore = create<KanbanState>()(
@@ -49,21 +51,25 @@ export const useKanbanStore = create<KanbanState>()(
             activeBoardId: null,
             searchQuery: '',
             tagFilter: [],
+            language: 'es',
 
             createBoard: (name: string) => {
+                const lang = get().language;
+                const isEs = lang === 'es';
+
                 const newBoard: Board = {
                     id: `board-${Date.now()}`,
                     name,
                     columns: [
-                        { id: 'todo', title: 'To Do', icon: 'circle', cards: [] },
-                        { id: 'in-progress', title: 'In Progress', icon: 'loader', cards: [] },
-                        { id: 'done', title: 'Done', icon: 'check-circle', cards: [] },
+                        { id: 'todo', title: isEs ? 'Pendiente' : 'To Do', icon: 'circle', cards: [] },
+                        { id: 'in-progress', title: isEs ? 'En Progreso' : 'In Progress', icon: 'loader', cards: [] },
+                        { id: 'done', title: isEs ? 'Completado' : 'Done', icon: 'check-circle', cards: [] },
                     ],
                     priorities: [
-                        { id: 'low', label: 'Low', color: 'bg-blue-400' },
-                        { id: 'medium', label: 'Medium', color: 'bg-amber-400' },
-                        { id: 'high', label: 'High', color: 'bg-orange-500' },
-                        { id: 'urgent', label: 'Urgent', color: 'bg-red-500' },
+                        { id: 'low', label: isEs ? 'Baja' : 'Low', color: 'bg-blue-400' },
+                        { id: 'medium', label: isEs ? 'Media' : 'Medium', color: 'bg-amber-400' },
+                        { id: 'high', label: isEs ? 'Alta' : 'High', color: 'bg-orange-500' },
+                        { id: 'urgent', label: isEs ? 'Urgente' : 'Urgent', color: 'bg-red-500' },
                     ]
                 };
                 set((state) => ({
@@ -126,7 +132,8 @@ export const useKanbanStore = create<KanbanState>()(
                         // Log move activity
                         const activity: ActivityLog = {
                             id: `act-${Date.now()}`,
-                            text: `Moved from ${activeColumn.title} to ${overColumn.title}`,
+                            text: 'board.movedCard', // Key for translation
+                            params: { from: activeColumn.title, to: overColumn.title },
                             type: 'move',
                             timestamp: Date.now()
                         };
@@ -171,7 +178,7 @@ export const useKanbanStore = create<KanbanState>()(
                         ...card,
                         activity: [{
                             id: `act-${Date.now()}`,
-                            text: 'Created this card',
+                            text: 'board.createdCard', // Key for translation
                             type: 'create',
                             timestamp: Date.now()
                         }]
@@ -314,10 +321,16 @@ export const useKanbanStore = create<KanbanState>()(
                             : [...state.tagFilter, tag],
                     };
                 }),
+
+            setLanguage: (lang: 'es' | 'en') => set({ language: lang }),
         }),
         {
             name: 'kanban-storage-vite',
-            partialize: (state) => ({ boards: state.boards, activeBoardId: state.activeBoardId }),
+            partialize: (state) => ({
+                boards: state.boards,
+                activeBoardId: state.activeBoardId,
+                language: state.language
+            }),
         }
     )
 );
