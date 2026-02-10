@@ -13,10 +13,10 @@ import {
     Star,
     Inbox,
     Users,
+    User,
     Layout,
     Trash2,
-    LogOut,
-    User
+    LogOut
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useKanbanStore } from "@/lib/store"
@@ -106,55 +106,64 @@ export function KanbanSidebar() {
 
                 {/* Dynamic Boards List */}
                 {!collapsed && (
-                    <div className="pt-6">
-                        <div className="flex items-center justify-between px-3 mb-2">
-                            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.1em]">
-                                {t('sidebar.yourBoards')}
-                            </span>
-                            <button
-                                type="button"
-                                onClick={() => setIsCreateModalOpen(true)}
-                                className="p-1 rounded-md hover:bg-sidebar-accent text-muted-foreground hover:text-foreground transition-all duration-200"
-                                title={t('sidebar.createBoard')}
-                            >
-                                <Plus className="w-3.5 h-3.5" />
-                            </button>
+                    <div className="pt-6 space-y-6">
+                        {/* Personal Boards Section */}
+                        <div>
+                            <div className="flex items-center justify-between px-3 mb-2">
+                                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.1em] flex items-center gap-2">
+                                    <User className="w-3 h-3" />
+                                    {t('sidebar.personalBoards')}
+                                </span>
+                                <button
+                                    type="button"
+                                    onClick={() => setIsCreateModalOpen(true)}
+                                    className="p-1 rounded-md hover:bg-sidebar-accent text-muted-foreground hover:text-foreground transition-all duration-200"
+                                    title={t('sidebar.createBoard')}
+                                >
+                                    <Plus className="w-3.5 h-3.5" />
+                                </button>
+                            </div>
+
+                            <div className="space-y-0.5">
+                                {boards.filter(b => (b.type || 'personal') === 'personal').map((board) => (
+                                    <BoardItem
+                                        key={board.id}
+                                        board={board}
+                                        activeBoardId={activeBoardId}
+                                        setActiveBoard={setActiveBoard}
+                                        onDelete={() => setBoardToDelete({ id: board.id, name: board.name })}
+                                    />
+                                ))}
+                                {boards.filter(b => (b.type || 'personal') === 'personal').length === 0 && (
+                                    <p className="px-3 py-2 text-xs text-muted-foreground italic">{t('sidebar.noBoards')}</p>
+                                )}
+                            </div>
                         </div>
 
-                        <div className="space-y-0.5">
-                            {boards.map((board) => (
-                                <div key={board.id} className="group flex items-center gap-1 pr-2">
-                                    <button
-                                        type="button"
-                                        onClick={() => setActiveBoard(board.id)}
-                                        className={cn(
-                                            "flex-1 flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all duration-200",
-                                            activeBoardId === board.id
-                                                ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
-                                                : "text-sidebar-foreground hover:bg-sidebar-accent/30 hover:text-foreground"
-                                        )}
-                                    >
-                                        <Layout className="w-3.5 h-3.5 shrink-0 opacity-70" />
-                                        <span className="flex-1 text-left truncate">{board.name}</span>
-                                        {activeBoardId === board.id && (
-                                            <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
-                                        )}
-                                    </button>
-                                    <button
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            setBoardToDelete({ id: board.id, name: board.name })
-                                        }}
-                                        className="opacity-0 group-hover:opacity-100 p-1.5 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-all duration-200"
-                                    >
-                                        <Trash2 className="w-3 h-3" />
-                                    </button>
-                                </div>
-                            ))}
+                        {/* Shared Boards Section */}
+                        <div className="pb-4">
+                            <div className="flex items-center justify-between px-3 mb-2">
+                                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.1em] flex items-center gap-2">
+                                    <Users className="w-3 h-3" />
+                                    {t('sidebar.sharedBoards')}
+                                </span>
+                            </div>
 
-                            {boards.length === 0 && (
-                                <p className="px-3 py-2 text-xs text-muted-foreground italic">{t('sidebar.noBoards')}</p>
-                            )}
+                            <div className="space-y-0.5">
+                                {boards.filter(b => b.type === 'shared').map((board) => (
+                                    <BoardItem
+                                        key={board.id}
+                                        board={board}
+                                        activeBoardId={activeBoardId}
+                                        setActiveBoard={setActiveBoard}
+                                        onDelete={() => setBoardToDelete({ id: board.id, name: board.name })}
+                                        isShared
+                                    />
+                                ))}
+                                {boards.filter(b => b.type === 'shared').length === 0 && (
+                                    <p className="px-3 py-2 text-xs text-muted-foreground italic">{t('members.noMembers')}</p>
+                                )}
+                            </div>
                         </div>
                     </div>
                 )}
@@ -221,4 +230,46 @@ export function KanbanSidebar() {
             />
         </aside>
     )
+}
+
+function BoardItem({ board, activeBoardId, setActiveBoard, onDelete, isShared }: {
+    board: any,
+    activeBoardId: string | null,
+    setActiveBoard: (id: string) => void,
+    onDelete: () => void,
+    isShared?: boolean
+}) {
+    return (
+        <div className="group flex items-center gap-1 pr-2">
+            <button
+                type="button"
+                onClick={() => setActiveBoard(board.id)}
+                className={cn(
+                    "flex-1 flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all duration-200",
+                    activeBoardId === board.id
+                        ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                        : "text-sidebar-foreground hover:bg-sidebar-accent/30 hover:text-foreground"
+                )}
+            >
+                {isShared ? (
+                    <Users className="w-3.5 h-3.5 shrink-0 opacity-70" />
+                ) : (
+                    <Layout className="w-3.5 h-3.5 shrink-0 opacity-70" />
+                )}
+                <span className="flex-1 text-left truncate">{board.name}</span>
+                {activeBoardId === board.id && (
+                    <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
+                )}
+            </button>
+            <button
+                onClick={(e) => {
+                    e.stopPropagation();
+                    onDelete();
+                }}
+                className="opacity-0 group-hover:opacity-100 p-1.5 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-all duration-200"
+            >
+                <Trash2 className="w-3 h-3" />
+            </button>
+        </div>
+    );
 }

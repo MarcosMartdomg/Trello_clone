@@ -24,6 +24,8 @@ export const translations = {
             logout: "Cerrar Sesión",
             user: "Usuario",
             settings: "Ajustes",
+            personalBoards: "Tableros Personales",
+            sharedBoards: "Tableros Compartidos",
         },
         header: {
             workspace: "Espacio de trabajo personal",
@@ -110,6 +112,20 @@ export const translations = {
             Security: "Seguridad",
             DevOps: "Operaciones",
             Marketing: "Marketing"
+        },
+        members: {
+            title: "Miembros del Tablero",
+            subtitle: "Gestiona quién tiene acceso a este tablero",
+            invite: "Invitar Miembros",
+            searchPlaceholder: "Buscar por nombre...",
+            searchToInvite: "Escribe un nombre para buscar miembros en la base de datos...",
+            noResults: "No se encontraron miembros para \"{{query}}\"",
+            noMembers: "No hay miembros externos aún",
+            addMember: "Añadir al tablero",
+            removeMember: "Eliminar",
+            personal: "Personal",
+            shared: "Compartido",
+            boardType: "Tipo de Tablero",
         }
     },
     en: {
@@ -137,6 +153,8 @@ export const translations = {
             logout: "Log Out",
             user: "User",
             settings: "Settings",
+            personalBoards: "Personal Boards",
+            sharedBoards: "Shared Boards",
         },
         header: {
             workspace: "Personal Workspace",
@@ -223,6 +241,20 @@ export const translations = {
             Security: "Security",
             DevOps: "DevOps",
             Marketing: "Marketing"
+        },
+        members: {
+            title: "Board Members",
+            subtitle: "Manage who has access to this board",
+            invite: "Invite Members",
+            searchPlaceholder: "Search by name...",
+            searchToInvite: "Type a name to search members in the database...",
+            noResults: "No members found for \"{{query}}\"",
+            noMembers: "No external members yet",
+            addMember: "Add to board",
+            removeMember: "Remove",
+            personal: "Personal",
+            shared: "Shared",
+            boardType: "Board Type",
         }
     }
 }

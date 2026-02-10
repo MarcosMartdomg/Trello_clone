@@ -53,11 +53,13 @@ export interface Priority {
 export interface Board {
   id: string
   name: string
+  type: 'personal' | 'shared'
   columns: KanbanColumn[]
   priorities: Priority[]
+  members: Member[]
 }
 
-const mockMembers: Member[] = [
+export const mockMembers: Member[] = [
   { id: "m1", name: "Alex Rivera", avatar: "AR", color: "bg-blue-500" },
   { id: "m2", name: "Sofia Chen", avatar: "SC", color: "bg-emerald-500" },
   { id: "m3", name: "Jordan Smith", avatar: "JS", color: "bg-amber-500" },
@@ -74,7 +76,9 @@ export const mockBoards: Board[] = [
   {
     id: "b1",
     name: "Product Roadmap",
+    type: "personal",
     priorities: defaultPriorities,
+    members: [],
     columns: [
       {
         id: "todo",

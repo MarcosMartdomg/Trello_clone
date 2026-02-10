@@ -5,22 +5,26 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useTranslation } from "@/hooks/use-translation"
+import { User, Users } from "lucide-react"
+import { cn } from "@/lib/utils"
 
 interface CreateBoardModalProps {
     isOpen: boolean
     onClose: () => void
-    onCreate: (name: string) => void
+    onCreate: (name: string, type: 'personal' | 'shared') => void
 }
 
 export function CreateBoardModal({ isOpen, onClose, onCreate }: CreateBoardModalProps) {
-    const [boardName, setBoardName] = useState("")
+    const [name, setName] = useState("")
+    const [type, setType] = useState<'personal' | 'shared'>('personal')
     const { t } = useTranslation()
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault()
-        if (boardName.trim()) {
-            onCreate(boardName.trim())
-            setBoardName("")
+        if (name.trim()) {
+            onCreate(name.trim(), type)
+            setName("")
+            setType('personal')
             onClose()
         }
     }
@@ -40,19 +44,52 @@ export function CreateBoardModal({ isOpen, onClose, onCreate }: CreateBoardModal
                             <Label htmlFor="name">{t('board.boardName')}</Label>
                             <Input
                                 id="name"
-                                value={boardName}
-                                onChange={(e) => setBoardName(e.target.value)}
+                                value={name}
+                                onChange={(e) => setName(e.target.value)}
                                 placeholder={t('board.placeholder')}
+                                className="bg-secondary/30 border-border/40 focus-visible:ring-primary/20 rounded-xl"
                                 autoFocus
                             />
+                        </div>
+
+                        <div className="space-y-3">
+                            <Label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest ml-1">{t('members.boardType')}</Label>
+                            <div className="grid grid-cols-2 gap-3">
+                                <button
+                                    type="button"
+                                    onClick={() => setType('personal')}
+                                    className={cn(
+                                        "flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all duration-200",
+                                        type === 'personal'
+                                            ? "bg-primary/5 border-primary text-primary shadow-lg shadow-primary/5"
+                                            : "bg-secondary/20 border-border/40 text-muted-foreground hover:bg-secondary/30"
+                                    )}
+                                >
+                                    <User className="w-5 h-5" />
+                                    <span className="text-xs font-bold">{t('members.personal')}</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setType('shared')}
+                                    className={cn(
+                                        "flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all duration-200",
+                                        type === 'shared'
+                                            ? "bg-primary/5 border-primary text-primary shadow-lg shadow-primary/5"
+                                            : "bg-secondary/20 border-border/40 text-muted-foreground hover:bg-secondary/30"
+                                    )}
+                                >
+                                    <Users className="w-5 h-5" />
+                                    <span className="text-xs font-bold">{t('members.shared')}</span>
+                                </button>
+                            </div>
                         </div>
                     </div>
                     <DialogFooter>
                         <Button type="button" variant="outline" onClick={onClose}>
                             {t('common.cancel')}
                         </Button>
-                        <Button type="submit" disabled={!boardName.trim()}>
-                            {t('board.createTitle')}
+                        <Button type="submit" className="w-full h-11 rounded-xl font-bold bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all" disabled={!name.trim()}>
+                            {t('common.create')}
                         </Button>
                     </DialogFooter>
                 </form>

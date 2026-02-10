@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo } from "react"
+import { useMemo, useState } from "react"
 import { Filter, Users, Zap, Search, X, Sun, Moon, Globe } from "lucide-react"
 import { useKanbanStore } from "@/lib/store"
 import { useTheme } from "next-themes"
@@ -13,11 +13,14 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Button } from "@/components/ui/button"
 import { useTranslation } from "@/hooks/use-translation"
+import { MembersModal } from "./members-modal"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 
 export function BoardHeader() {
     const { searchQuery, setSearchQuery, boards, activeBoardId, language, setLanguage } = useKanbanStore()
     const { theme, setTheme } = useTheme()
     const { t } = useTranslation()
+    const [isMembersModalOpen, setIsMembersModalOpen] = useState(false)
 
     const activeBoard = useMemo(() => {
         return boards.find(b => b.id === activeBoardId) || null
@@ -32,7 +35,9 @@ export function BoardHeader() {
                     <h1 className="text-base font-semibold text-foreground tracking-tight">
                         {activeBoard.name}
                     </h1>
-                    <p className="text-xs text-muted-foreground">{t('header.workspace')}</p>
+                    <p className="text-xs text-muted-foreground lowercase">
+                        {activeBoard.type === 'shared' ? t('members.shared') : t('members.personal')} {t('header.workspace')}
+                    </p>
                 </div>
             </div>
 
@@ -63,11 +68,31 @@ export function BoardHeader() {
                     <span className="text-xs">{t('header.filter')}</span>
                 </button>
 
-                {/* Group */}
-                <button type="button" className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-colors border border-transparent hover:border-border">
-                    <Users className="w-3.5 h-3.5" />
-                    <span className="text-xs">{t('header.members')}</span>
-                </button>
+                {/* Members button & Avatars */}
+                <div className="hidden sm:flex items-center gap-1.5 p-1 rounded-xl bg-secondary/30 border border-border/50">
+                    <div className="flex -space-x-2 mr-2 ml-1">
+                        {activeBoard.members?.slice(0, 3).map((member) => (
+                            <Avatar key={member.id} className="h-6 w-6 border-2 border-background ring-1 ring-border/50">
+                                <AvatarFallback className={cn("text-[8px] font-black text-white", member.color)}>
+                                    {member.avatar}
+                                </AvatarFallback>
+                            </Avatar>
+                        ))}
+                        {activeBoard.members && activeBoard.members.length > 3 && (
+                            <div className="flex items-center justify-center h-6 w-6 rounded-full bg-secondary border-2 border-background text-[8px] font-black text-muted-foreground ring-1 ring-border/50">
+                                +{activeBoard.members.length - 3}
+                            </div>
+                        )}
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => setIsMembersModalOpen(true)}
+                        className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-background transition-all"
+                    >
+                        <Users className="w-3.5 h-3.5" />
+                        <span className="text-xs font-bold">{t('header.members')}</span>
+                    </button>
+                </div>
 
                 {/* Automations */}
                 <button type="button" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest bg-primary text-primary-foreground hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 active:scale-95">
@@ -124,6 +149,11 @@ export function BoardHeader() {
                     </DropdownMenuContent>
                 </DropdownMenu>
             </div>
+
+            <MembersModal
+                isOpen={isMembersModalOpen}
+                onClose={() => setIsMembersModalOpen(false)}
+            />
         </header>
     )
 }

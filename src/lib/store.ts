@@ -1,7 +1,7 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { KanbanColumn, KanbanCard, ActivityLog } from './kanban-data';
+import { KanbanColumn, KanbanCard, ActivityLog, Member } from './kanban-data';
 import { api } from './api';
 
 export interface Priority {
@@ -13,8 +13,10 @@ export interface Priority {
 export interface Board {
     id: string;
     name: string;
+    type: 'personal' | 'shared';
     columns: KanbanColumn[];
     priorities: Priority[];
+    members: Member[];
 }
 
 interface KanbanState {
@@ -25,10 +27,12 @@ interface KanbanState {
     language: 'es' | 'en';
 
     // Actions
-    createBoard: (name: string) => void;
+    createBoard: (name: string, type?: 'personal' | 'shared') => void;
     deleteBoard: (id: string) => void;
     setActiveBoard: (id: string) => void;
     updateBoardPriorities: (boardId: string, priorities: Priority[]) => void;
+    addBoardMember: (boardId: string, member: Member) => void;
+    removeBoardMember: (boardId: string, memberId: string) => void;
 
     moveCard: (activeId: string, overId: string) => void;
     addCard: (columnId: string, card: KanbanCard) => void;
@@ -53,13 +57,14 @@ export const useKanbanStore = create<KanbanState>()(
             tagFilter: [],
             language: 'es',
 
-            createBoard: (name: string) => {
+            createBoard: (name: string, type: 'personal' | 'shared' = 'personal') => {
                 const lang = get().language;
                 const isEs = lang === 'es';
 
                 const newBoard: Board = {
                     id: `board-${Date.now()}`,
                     name,
+                    type,
                     columns: [
                         { id: 'todo', title: isEs ? 'Pendiente' : 'To Do', icon: 'circle', cards: [] },
                         { id: 'in-progress', title: isEs ? 'En Progreso' : 'In Progress', icon: 'loader', cards: [] },
@@ -70,7 +75,8 @@ export const useKanbanStore = create<KanbanState>()(
                         { id: 'medium', label: isEs ? 'Media' : 'Medium', color: 'bg-amber-400' },
                         { id: 'high', label: isEs ? 'Alta' : 'High', color: 'bg-orange-500' },
                         { id: 'urgent', label: isEs ? 'Urgente' : 'Urgent', color: 'bg-red-500' },
-                    ]
+                    ],
+                    members: []
                 };
                 set((state) => ({
                     boards: [...state.boards, newBoard],
@@ -95,6 +101,26 @@ export const useKanbanStore = create<KanbanState>()(
             updateBoardPriorities: (boardId: string, priorities: Priority[]) => {
                 set((state) => ({
                     boards: state.boards.map(b => b.id === boardId ? { ...b, priorities } : b)
+                }));
+            },
+
+            addBoardMember: (boardId: string, member: Member) => {
+                set((state) => ({
+                    boards: state.boards.map(b =>
+                        b.id === boardId
+                            ? { ...b, members: [...(b.members || []), member] }
+                            : b
+                    )
+                }));
+            },
+
+            removeBoardMember: (boardId: string, memberId: string) => {
+                set((state) => ({
+                    boards: state.boards.map(b =>
+                        b.id === boardId
+                            ? { ...b, members: (b.members || []).filter(m => m.id !== memberId) }
+                            : b
+                    )
                 }));
             },
 
