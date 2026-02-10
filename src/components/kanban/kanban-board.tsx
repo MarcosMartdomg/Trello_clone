@@ -1,0 +1,234 @@
+
+"use client"
+
+import { useMemo, useState, useEffect } from "react"
+import { Plus, LayoutPanelLeft } from "lucide-react"
+import {
+    DndContext,
+    DragOverlay,
+    defaultDropAnimationSideEffects,
+    DragStartEvent,
+    DragOverEvent,
+    DragEndEvent,
+    useSensor,
+    useSensors,
+    PointerSensor,
+    KeyboardSensor,
+    DropAnimation
+} from "@dnd-kit/core"
+import {
+    SortableContext,
+    sortableKeyboardCoordinates
+} from "@dnd-kit/sortable"
+
+import { useKanbanStore } from "@/lib/store"
+import { KanbanColumnComponent } from "./kanban-column"
+import { KanbanCard } from "./kanban-card"
+import { TagFilters } from "./board-filters"
+import { Button } from "@/components/ui/button"
+import { CreateBoardModal } from "./create-board-modal"
+import type { KanbanCard as KanbanCardType, KanbanColumn as KanbanColumnType } from "@/lib/kanban-data"
+
+export function KanbanBoard() {
+    const { boards, activeBoardId, moveCard, addColumn, searchQuery, tagFilter, createBoard } = useKanbanStore()
+    const [activeColumn, setActiveColumn] = useState<KanbanColumnType | null>(null)
+    const [activeCard, setActiveCard] = useState<KanbanCardType | null>(null)
+    const [isMounted, setIsMounted] = useState(false)
+    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+    const [isAddingColumn, setIsAddingColumn] = useState(false)
+    const [newColumnTitle, setNewColumnTitle] = useState("")
+
+    useEffect(() => {
+        setIsMounted(true)
+    }, [])
+
+    const activeBoard = useMemo(() => {
+        return boards.find(b => b.id === activeBoardId) || null
+    }, [boards, activeBoardId])
+
+    const sensors = useSensors(
+        useSensor(PointerSensor, {
+            activationConstraint: {
+                distance: 8,
+            },
+        }),
+        useSensor(KeyboardSensor, {
+            coordinateGetter: sortableKeyboardCoordinates,
+        })
+    )
+
+    const filteredColumns = useMemo(() => {
+        if (!activeBoard) return []
+        return activeBoard.columns.map((col) => ({
+            ...col,
+            cards: col.cards.filter((card) => {
+                const matchesSearch = card.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                    card.description.toLowerCase().includes(searchQuery.toLowerCase());
+                const matchesTags = tagFilter.length === 0 ||
+                    card.labels.some(l => tagFilter.includes(l.text));
+                return matchesSearch && matchesTags;
+            })
+        }))
+    }, [activeBoard, searchQuery, tagFilter])
+
+    const onDragStart = (event: DragStartEvent) => {
+        if (event.active.data.current?.type === "Column") {
+            setActiveColumn(event.active.data.current.column)
+            return
+        }
+
+        if (event.active.data.current?.type === "Card") {
+            setActiveCard(event.active.data.current.card)
+            return
+        }
+    }
+
+    const onDragOver = (event: DragOverEvent) => {
+        const { active, over } = event
+        if (!over) return
+
+        const activeId = active.id
+        const overId = over.id
+
+        if (activeId === overId) return
+
+        const isActiveCard = active.data.current?.type === "Card"
+        const isOverCard = over.data.current?.type === "Card"
+        const isOverColumn = over.data.current?.type === "Column"
+
+        if (isActiveCard && (isOverCard || isOverColumn)) {
+            moveCard(String(activeId), String(overId))
+        }
+    }
+
+    const onDragEnd = (event: DragEndEvent) => {
+        setActiveColumn(null)
+        setActiveCard(null)
+    }
+
+    const dropAnimation: DropAnimation = {
+        sideEffects: defaultDropAnimationSideEffects({
+            styles: {
+                active: {
+                    opacity: "0.5",
+                },
+            },
+        }),
+    }
+
+    if (!isMounted) return null
+
+    if (!activeBoard) {
+        return (
+            <div className="flex-1 flex flex-col items-center justify-center p-6 text-center bg-card/10">
+                <div className="w-20 h-20 rounded-3xl bg-primary/10 flex items-center justify-center mb-6 border border-primary/20">
+                    <LayoutPanelLeft className="w-10 h-10 text-primary" />
+                </div>
+                <h1 className="text-3xl font-bold tracking-tight mb-2">Welcome to FlowBoard</h1>
+                <p className="text-muted-foreground max-w-md mb-8">
+                    Create your first workspace to start organizing your tasks, managing priorities, and boosting your productivity.
+                </p>
+                <Button
+                    size="lg"
+                    onClick={() => setIsCreateModalOpen(true)}
+                    className="gap-2 shadow-lg shadow-primary/20"
+                >
+                    <Plus className="w-4 h-4" />
+                    Create your first board
+                </Button>
+            </div>
+        )
+    }
+
+    return (
+        <div className="flex flex-1 flex-col h-full bg-background/50">
+            <TagFilters />
+
+            <DndContext
+                sensors={sensors}
+                onDragStart={onDragStart}
+                onDragOver={onDragOver}
+                onDragEnd={onDragEnd}
+            >
+                <div className="flex gap-4 overflow-x-auto flex-1 items-start p-6 scrollbar-thin scrollbar-thumb-sidebar-border scrollbar-track-transparent">
+                    {filteredColumns.map((column) => (
+                        <KanbanColumnComponent key={column.id} column={column} />
+                    ))}
+
+                    {isAddingColumn ? (
+                        <div className="w-[320px] shrink-0 p-3 rounded-2xl bg-column border border-primary/30 shadow-lg animate-in fade-in zoom-in-95 duration-200 h-fit">
+                            <input
+                                autoFocus
+                                value={newColumnTitle}
+                                onChange={(e) => setNewColumnTitle(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === "Escape") {
+                                        setIsAddingColumn(false)
+                                        setNewColumnTitle("")
+                                    }
+                                    if (e.key === "Enter") {
+                                        if (newColumnTitle.trim()) {
+                                            addColumn(newColumnTitle.trim())
+                                            setNewColumnTitle("")
+                                            setIsAddingColumn(false)
+                                        }
+                                    }
+                                }}
+                                placeholder="Column title..."
+                                className="w-full bg-transparent text-sm font-semibold text-foreground placeholder:text-muted-foreground outline-none px-1 py-1"
+                            />
+                            <div className="flex items-center gap-2 mt-3 justify-end">
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => {
+                                        setIsAddingColumn(false)
+                                        setNewColumnTitle("")
+                                    }}
+                                >
+                                    Cancel
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    onClick={() => {
+                                        if (newColumnTitle.trim()) {
+                                            addColumn(newColumnTitle.trim())
+                                            setNewColumnTitle("")
+                                            setIsAddingColumn(false)
+                                        }
+                                    }}
+                                >
+                                    Add Column
+                                </Button>
+                            </div>
+                        </div>
+                    ) : (
+                        <button
+                            type="button"
+                            onClick={() => setIsAddingColumn(true)}
+                            className="flex items-center gap-2 w-[300px] shrink-0 h-12 px-4 rounded-xl border border-dashed border-border text-sm font-medium text-muted-foreground hover:text-foreground hover:border-primary/50 hover:bg-column transition-all duration-200"
+                        >
+                            <Plus className="w-4 h-4" />
+                            <span>Add column</span>
+                        </button>
+                    )}
+                </div>
+
+                <DragOverlay dropAnimation={dropAnimation}>
+                    {activeCard && (
+                        <KanbanCard card={activeCard} columnTitle="" />
+                    )}
+                    {activeColumn && (
+                        <KanbanColumnComponent column={activeColumn} isOverlay />
+                    )}
+                </DragOverlay>
+            </DndContext>
+
+            <CreateBoardModal
+                isOpen={isCreateModalOpen}
+                onClose={() => setIsCreateModalOpen(false)}
+                onCreate={(name) => createBoard(name)}
+            />
+        </div>
+    )
+}
