@@ -1,7 +1,7 @@
 
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import {
     Search,
     LayoutDashboard,
@@ -33,10 +33,16 @@ export function KanbanSidebar() {
     const [isProfileModalOpen, setIsProfileModalOpen] = useState(false)
     const [boardToDelete, setBoardToDelete] = useState<{ id: string, name: string } | null>(null)
 
-    const { boards, activeBoardId, setActiveBoard, createBoard, deleteBoard } = useKanbanStore()
+    const { boards, activeBoardId, setActiveBoard, createBoard, deleteBoard, fetchBoards } = useKanbanStore()
     const { user, signOut } = useAuth()
     const { t } = useTranslation()
     const userInitial = user?.email?.[0].toUpperCase() || "U"
+
+    useEffect(() => {
+        if (user) {
+            fetchBoards(user.id)
+        }
+    }, [user, fetchBoards])
 
     const navItems = [
         { id: "search", label: t('sidebar.search'), icon: Search },
@@ -46,8 +52,10 @@ export function KanbanSidebar() {
         { id: "team", label: t('sidebar.team'), icon: Users },
     ]
 
-    const handleCreateBoard = (name: string) => {
-        createBoard(name)
+    const handleCreateBoard = (name: string, type: 'personal' | 'shared' = 'personal') => {
+        if (user) {
+            createBoard(name, user.id, type)
+        }
     }
 
     const handleDeleteBoard = () => {

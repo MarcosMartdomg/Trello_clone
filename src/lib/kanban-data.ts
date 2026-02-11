@@ -34,6 +34,7 @@ export interface KanbanCard {
   members: Member[]
   priority: string
   color?: string
+  due_date?: string
   activity: ActivityLog[]
 }
 

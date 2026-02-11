@@ -1,6 +1,7 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { supabase } from './supabase';
 import { KanbanColumn, KanbanCard, ActivityLog, Member } from './kanban-data';
 import { api } from './api';
 
@@ -27,22 +28,23 @@ interface KanbanState {
     language: 'es' | 'en';
 
     // Actions
-    createBoard: (name: string, type?: 'personal' | 'shared') => void;
-    deleteBoard: (id: string) => void;
+    fetchBoards: (userId: string) => Promise<void>;
+    createBoard: (name: string, userId: string, type?: 'personal' | 'shared') => Promise<void>;
+    deleteBoard: (id: string) => Promise<void>;
     setActiveBoard: (id: string) => void;
     updateBoardPriorities: (boardId: string, priorities: Priority[]) => void;
-    addBoardMember: (boardId: string, member: Member) => void;
-    removeBoardMember: (boardId: string, memberId: string) => void;
+    addBoardMember: (boardId: string, userId: string) => Promise<void>;
+    removeBoardMember: (boardId: string, userId: string) => Promise<void>;
 
-    moveCard: (activeId: string, overId: string) => void;
-    addCard: (columnId: string, card: KanbanCard) => void;
-    updateCard: (cardId: string, updates: Partial<KanbanCard>) => void;
-    deleteCard: (cardId: string) => void;
+    moveCard: (activeId: string, overId: string) => Promise<void>;
+    addCard: (columnId: string, card: Partial<KanbanCard>) => Promise<void>;
+    updateCard: (cardId: string, updates: Partial<KanbanCard>) => Promise<void>;
+    deleteCard: (cardId: string) => Promise<void>;
     addActivity: (cardId: string, text: string, type: ActivityLog['type']) => void;
 
-    addColumn: (title: string) => void;
-    updateColumnTitle: (columnId: string, title: string) => void;
-    deleteColumn: (columnId: string) => void;
+    addColumn: (title: string) => Promise<void>;
+    updateColumnTitle: (columnId: string, title: string) => Promise<void>;
+    deleteColumn: (columnId: string) => Promise<void>;
     setSearchQuery: (query: string) => void;
     toggleTagFilter: (tag: string) => void;
     setLanguage: (lang: 'es' | 'en') => void;
@@ -57,43 +59,73 @@ export const useKanbanStore = create<KanbanState>()(
             tagFilter: [],
             language: 'es',
 
-            createBoard: (name: string, type: 'personal' | 'shared' = 'personal') => {
-                const lang = get().language;
-                const isEs = lang === 'es';
+            fetchBoards: async (userId: string) => {
+                try {
+                    const data = await api.fetchBoards(userId);
+                    // Map Supabase data to our Board interface
+                    const boards: Board[] = data.map((b: any) => ({
+                        id: b.id,
+                        name: b.name,
+                        type: b.type,
+                        priorities: [
+                            { id: 'low', label: 'Low', color: 'bg-blue-400' },
+                            { id: 'medium', label: 'Medium', color: 'bg-amber-400' },
+                            { id: 'high', label: 'High', color: 'bg-orange-500' },
+                            { id: 'urgent', label: 'Urgent', color: 'bg-red-500' },
+                        ],
+                        columns: b.columns.sort((a: any, b: any) => a.position - b.position).map((col: any) => ({
+                            id: col.id,
+                            title: col.title,
+                            icon: col.icon,
+                            cards: col.cards.sort((a: any, b: any) => a.position - b.position).map((card: any) => ({
+                                ...card,
+                                checklist: Array.isArray(card.checklist) ? card.checklist : [],
+                                labels: Array.isArray(card.labels) ? card.labels : [],
+                                activity: Array.isArray(card.activities) ? card.activities : []
+                            }))
+                        })),
+                        members: b.board_members.map((bm: any) => ({
+                            id: bm.user_id,
+                            name: bm.profiles?.full_name || 'Member',
+                            avatar: bm.profiles?.full_name?.[0]?.toUpperCase() || 'U',
+                            color: 'bg-primary'
+                        }))
+                    }));
 
-                const newBoard: Board = {
-                    id: `board-${Date.now()}`,
-                    name,
-                    type,
-                    columns: [
-                        { id: 'todo', title: isEs ? 'Pendiente' : 'To Do', icon: 'circle', cards: [] },
-                        { id: 'in-progress', title: isEs ? 'En Progreso' : 'In Progress', icon: 'loader', cards: [] },
-                        { id: 'done', title: isEs ? 'Completado' : 'Done', icon: 'check-circle', cards: [] },
-                    ],
-                    priorities: [
-                        { id: 'low', label: isEs ? 'Baja' : 'Low', color: 'bg-blue-400' },
-                        { id: 'medium', label: isEs ? 'Media' : 'Medium', color: 'bg-amber-400' },
-                        { id: 'high', label: isEs ? 'Alta' : 'High', color: 'bg-orange-500' },
-                        { id: 'urgent', label: isEs ? 'Urgente' : 'Urgent', color: 'bg-red-500' },
-                    ],
-                    members: []
-                };
-                set((state) => ({
-                    boards: [...state.boards, newBoard],
-                    activeBoardId: newBoard.id
-                }));
+                    set({ boards });
+                    if (boards.length > 0 && !get().activeBoardId) {
+                        set({ activeBoardId: boards[0].id });
+                    }
+                } catch (error) {
+                    console.error("Store: Error fetching boards", error);
+                    set({ boards: [] }); // Clear boards on error to avoid stale data
+                }
             },
 
-            deleteBoard: (id: string) => {
-                set((state) => {
-                    const newBoards = state.boards.filter(b => b.id !== id);
-                    return {
-                        boards: newBoards,
-                        activeBoardId: state.activeBoardId === id
-                            ? (newBoards.length > 0 ? newBoards[0].id : null)
-                            : state.activeBoardId
-                    };
-                });
+            createBoard: async (name: string, userId: string, type: 'personal' | 'shared' = 'personal') => {
+                try {
+                    await api.createBoard(name, userId, type);
+                    await get().fetchBoards(userId);
+                } catch (error) {
+                    console.error("Store: Error creating board", error);
+                }
+            },
+
+            deleteBoard: async (id: string) => {
+                try {
+                    await api.deleteBoard(id);
+                    set((state) => {
+                        const newBoards = state.boards.filter(b => b.id !== id);
+                        return {
+                            boards: newBoards,
+                            activeBoardId: state.activeBoardId === id
+                                ? (newBoards.length > 0 ? newBoards[0].id : null)
+                                : state.activeBoardId
+                        };
+                    });
+                } catch (error) {
+                    console.error("Store: Error deleting board", error);
+                }
             },
 
             setActiveBoard: (id: string) => set({ activeBoardId: id }),
@@ -104,153 +136,140 @@ export const useKanbanStore = create<KanbanState>()(
                 }));
             },
 
-            addBoardMember: (boardId: string, member: Member) => {
-                set((state) => ({
-                    boards: state.boards.map(b =>
-                        b.id === boardId
-                            ? { ...b, members: [...(b.members || []), member] }
-                            : b
-                    )
-                }));
+            addBoardMember: async (boardId: string, userId: string) => {
+                try {
+                    await api.addBoardMember(boardId, userId);
+                    // In a real app we'd fetch the user's name/avatar. For now, just re-fetch boards.
+                    const user = (await supabase.auth.getUser()).data.user;
+                    if (user) await get().fetchBoards(user.id);
+                } catch (error) {
+                    console.error("Store: Error adding member", error);
+                }
             },
 
-            removeBoardMember: (boardId: string, memberId: string) => {
-                set((state) => ({
-                    boards: state.boards.map(b =>
-                        b.id === boardId
-                            ? { ...b, members: (b.members || []).filter(m => m.id !== memberId) }
-                            : b
-                    )
-                }));
+            removeBoardMember: async (boardId: string, userId: string) => {
+                try {
+                    await api.removeBoardMember(boardId, userId);
+                    const user = (await supabase.auth.getUser()).data.user;
+                    if (user) await get().fetchBoards(user.id);
+                } catch (error) {
+                    console.error("Store: Error removing member", error);
+                }
             },
 
-            moveCard: (activeId: string, overId: string) => {
-                set((state) => {
-                    const activeBoardIndex = state.boards.findIndex(b => b.id === state.activeBoardId);
-                    if (activeBoardIndex === -1) return state;
+            moveCard: async (activeId: string, overId: string) => {
+                const state = get();
+                const activeBoardIndex = state.boards.findIndex(b => b.id === state.activeBoardId);
+                if (activeBoardIndex === -1) return;
 
-                    const currentBoard = state.boards[activeBoardIndex];
-                    const newColumns = [...currentBoard.columns];
+                const currentBoard = state.boards[activeBoardIndex];
+                const newColumns = [...currentBoard.columns];
 
-                    const activeColumnIndex = newColumns.findIndex((col) =>
-                        col.cards.some((card) => card.id === activeId)
-                    );
-                    const overColumnIndex = newColumns.findIndex((col) =>
-                        col.id === overId || col.cards.some((card) => card.id === overId)
-                    );
+                const activeColumnIndex = newColumns.findIndex((col) =>
+                    col.cards.some((card) => card.id === activeId)
+                );
+                const overColumnIndex = newColumns.findIndex((col) =>
+                    col.id === overId || col.cards.some((card) => card.id === overId)
+                );
 
-                    if (activeColumnIndex === -1 || overColumnIndex === -1) return state;
+                if (activeColumnIndex === -1 || overColumnIndex === -1) return;
 
-                    const activeColumn = newColumns[activeColumnIndex];
-                    const overColumn = newColumns[overColumnIndex];
+                const activeColumn = newColumns[activeColumnIndex];
+                const overColumn = newColumns[overColumnIndex];
 
-                    const activeCardIndex = activeColumn.cards.findIndex((c) => c.id === activeId);
-                    let activeCard = activeColumn.cards[activeCardIndex];
+                const activeCardIndex = activeColumn.cards.findIndex((c) => c.id === activeId);
+                let activeCard = activeColumn.cards[activeCardIndex];
 
-                    if (activeColumnIndex === overColumnIndex) {
-                        const overCardIndex = overColumn.cards.findIndex((c) => c.id === overId);
-                        const newCards = [...activeColumn.cards];
-                        newCards.splice(activeCardIndex, 1);
-                        newCards.splice(overCardIndex, 0, activeCard);
+                // Optimistic UI updates
+                if (activeColumnIndex === overColumnIndex) {
+                    const overCardIndex = overColumn.cards.findIndex((c) => c.id === overId);
+                    const newCards = [...activeColumn.cards];
+                    newCards.splice(activeCardIndex, 1);
+                    newCards.splice(overCardIndex, 0, activeCard);
+                    newColumns[activeColumnIndex] = { ...activeColumn, cards: newCards };
 
-                        newColumns[activeColumnIndex] = { ...activeColumn, cards: newCards };
-                    } else {
-                        // Log move activity
-                        const activity: ActivityLog = {
-                            id: `act-${Date.now()}`,
-                            text: 'board.movedCard', // Key for translation
-                            params: { from: activeColumn.title, to: overColumn.title },
-                            type: 'move',
-                            timestamp: Date.now()
-                        };
-                        activeCard = { ...activeCard, activity: [activity, ...(activeCard.activity || [])] };
-
-                        const newSourceCards = [...activeColumn.cards];
-                        newSourceCards.splice(activeCardIndex, 1);
-
-                        const newDestCards = [...overColumn.cards];
-                        const isOverColumn = overColumn.id === overId;
-
-                        if (isOverColumn) {
-                            newDestCards.push(activeCard);
-                        } else {
-                            const overCardIndex = overColumn.cards.findIndex(c => c.id === overId);
-                            newDestCards.splice(overCardIndex >= 0 ? overCardIndex : newDestCards.length, 0, activeCard);
-                        }
-
-                        newColumns[activeColumnIndex] = { ...activeColumn, cards: newSourceCards };
-                        newColumns[overColumnIndex] = { ...overColumn, cards: newDestCards };
-
-                        api.updateCardPosition(activeId, overColumn.id, newDestCards.indexOf(activeCard));
-                    }
-
-                    const newBoards = [...state.boards];
-                    newBoards[activeBoardIndex] = { ...currentBoard, columns: newColumns };
-
-                    api.saveBoardState(newColumns);
-                    return { boards: newBoards };
-                });
-            },
-
-            addCard: (columnId: string, card: KanbanCard) => {
-                set((state) => {
-                    const activeBoardIndex = state.boards.findIndex(b => b.id === state.activeBoardId);
-                    if (activeBoardIndex === -1) return state;
-
-                    const currentBoard = state.boards[activeBoardIndex];
-
-                    // Initialize card with activity
-                    const cardWithActivity: KanbanCard = {
-                        ...card,
-                        activity: [{
-                            id: `act-${Date.now()}`,
-                            text: 'board.createdCard', // Key for translation
-                            type: 'create',
-                            timestamp: Date.now()
-                        }]
-                    };
-
-                    const newColumns = currentBoard.columns.map((col) => {
-                        if (col.id === columnId) {
-                            return { ...col, cards: [...col.cards, cardWithActivity] };
-                        }
-                        return col;
+                    set((state) => {
+                        const newBoards = [...state.boards];
+                        newBoards[activeBoardIndex] = { ...currentBoard, columns: newColumns };
+                        return { boards: newBoards };
                     });
 
-                    const newBoards = [...state.boards];
-                    newBoards[activeBoardIndex] = { ...currentBoard, columns: newColumns };
+                    // Update Subapase
+                    await api.updateCard(activeId, { position: overCardIndex });
+                } else {
+                    const newSourceCards = [...activeColumn.cards];
+                    newSourceCards.splice(activeCardIndex, 1);
 
-                    api.saveBoardState(newColumns);
-                    return { boards: newBoards };
-                });
+                    const newDestCards = [...overColumn.cards];
+                    const isOverColumn = overColumn.id === overId;
+                    let overCardIndex = 0;
+
+                    if (isOverColumn) {
+                        newDestCards.push(activeCard);
+                        overCardIndex = newDestCards.length - 1;
+                    } else {
+                        overCardIndex = overColumn.cards.findIndex(c => c.id === overId);
+                        newDestCards.splice(overCardIndex >= 0 ? overCardIndex : newDestCards.length, 0, activeCard);
+                    }
+
+                    newColumns[activeColumnIndex] = { ...activeColumn, cards: newSourceCards };
+                    newColumns[overColumnIndex] = { ...overColumn, cards: newDestCards };
+
+                    set((state) => {
+                        const newBoards = [...state.boards];
+                        newBoards[activeBoardIndex] = { ...currentBoard, columns: newColumns };
+                        return { boards: newBoards };
+                    });
+
+                    // Update Supabase
+                    await api.updateCard(activeId, { column_id: overColumn.id, position: overCardIndex });
+                }
             },
 
-            updateCard: (cardId: string, updates: Partial<KanbanCard>) => {
-                set((state) => {
-                    const activeBoardIndex = state.boards.findIndex(b => b.id === state.activeBoardId);
-                    if (activeBoardIndex === -1) return state;
+            addCard: async (columnId: string, card: Partial<KanbanCard>) => {
+                const state = get();
+                const activeBoardIndex = state.boards.findIndex(b => b.id === state.activeBoardId);
+                if (activeBoardIndex === -1) return;
 
-                    const currentBoard = state.boards[activeBoardIndex];
-                    const newColumns = currentBoard.columns.map((col) => ({
-                        ...col,
-                        cards: col.cards.map((card) => {
-                            if (card.id === cardId) {
-                                // Potentially log edit activity here if needed
-                                return { ...card, ...updates };
-                            }
-                            return card;
-                        }),
-                    }));
+                const currentBoard = state.boards[activeBoardIndex];
+                const column = currentBoard.columns.find(col => col.id === columnId);
+                if (!column) return;
 
-                    const newBoards = [...state.boards];
-                    newBoards[activeBoardIndex] = { ...currentBoard, columns: newColumns };
+                try {
+                    const newCard = await api.createCard(columnId, card, column.cards.length);
+                    // Re-fetch to get real UUIDs and data
+                    const user = (await supabase.auth.getUser()).data.user;
+                    if (user) await get().fetchBoards(user.id);
+                } catch (error) {
+                    console.error("Store: Error adding card", error);
+                }
+            },
 
-                    api.saveBoardState(newColumns);
-                    return { boards: newBoards };
-                });
+            updateCard: async (cardId: string, updates: Partial<KanbanCard>) => {
+                try {
+                    await api.updateCard(cardId, updates);
+                    // Optimistic local update
+                    set((state) => {
+                        const activeBoardIndex = state.boards.findIndex(b => b.id === state.activeBoardId);
+                        if (activeBoardIndex === -1) return state;
+                        const currentBoard = state.boards[activeBoardIndex];
+                        const newColumns = currentBoard.columns.map((col) => ({
+                            ...col,
+                            cards: col.cards.map((card) =>
+                                card.id === cardId ? { ...card, ...updates } : card
+                            ),
+                        }));
+                        const newBoards = [...state.boards];
+                        newBoards[activeBoardIndex] = { ...currentBoard, columns: newColumns };
+                        return { boards: newBoards };
+                    });
+                } catch (error) {
+                    console.error("Store: Error updating card", error);
+                }
             },
 
             addActivity: (cardId: string, text: string, type: ActivityLog['type']) => {
+                // In a full implementation, this would also write to activities table
                 get().updateCard(cardId, {
                     activity: [{
                         id: `act-${Date.now()}`,
@@ -261,79 +280,75 @@ export const useKanbanStore = create<KanbanState>()(
                 });
             },
 
-            deleteCard: (cardId: string) => {
-                set((state) => {
-                    const activeBoardIndex = state.boards.findIndex(b => b.id === state.activeBoardId);
-                    if (activeBoardIndex === -1) return state;
-
-                    const currentBoard = state.boards[activeBoardIndex];
-                    const newColumns = currentBoard.columns.map((col) => ({
-                        ...col,
-                        cards: col.cards.filter((card) => card.id !== cardId),
-                    }));
-
-                    const newBoards = [...state.boards];
-                    newBoards[activeBoardIndex] = { ...currentBoard, columns: newColumns };
-
-                    api.saveBoardState(newColumns);
-                    return { boards: newBoards };
-                });
+            deleteCard: async (cardId: string) => {
+                try {
+                    await api.deleteCard(cardId);
+                    set((state) => {
+                        const activeBoardIndex = state.boards.findIndex(b => b.id === state.activeBoardId);
+                        if (activeBoardIndex === -1) return state;
+                        const currentBoard = state.boards[activeBoardIndex];
+                        const newColumns = currentBoard.columns.map((col) => ({
+                            ...col,
+                            cards: col.cards.filter((card) => card.id !== cardId),
+                        }));
+                        const newBoards = [...state.boards];
+                        newBoards[activeBoardIndex] = { ...currentBoard, columns: newColumns };
+                        return { boards: newBoards };
+                    });
+                } catch (error) {
+                    console.error("Store: Error deleting card", error);
+                }
             },
 
-            addColumn: (title: string) => {
-                set((state) => {
-                    const activeBoardIndex = state.boards.findIndex(b => b.id === state.activeBoardId);
-                    if (activeBoardIndex === -1) return state;
+            addColumn: async (title: string) => {
+                const state = get();
+                const activeBoardIndex = state.boards.findIndex(b => b.id === state.activeBoardId);
+                if (activeBoardIndex === -1) return;
 
-                    const currentBoard = state.boards[activeBoardIndex];
-                    const newColumn: KanbanColumn = {
-                        id: `col-${Date.now()}`,
-                        title,
-                        icon: 'circle',
-                        cards: [],
-                    };
-                    const newColumns = [...currentBoard.columns, newColumn];
-
-                    const newBoards = [...state.boards];
-                    newBoards[activeBoardIndex] = { ...currentBoard, columns: newColumns };
-
-                    api.saveBoardState(newColumns);
-                    return { boards: newBoards };
-                });
+                const currentBoard = state.boards[activeBoardIndex];
+                try {
+                    await api.createColumn(currentBoard.id, title, currentBoard.columns.length);
+                    const user = (await supabase.auth.getUser()).data.user;
+                    if (user) await get().fetchBoards(user.id);
+                } catch (error) {
+                    console.error("Store: Error adding column", error);
+                }
             },
 
-            updateColumnTitle: (columnId: string, title: string) => {
-                set((state) => {
-                    const activeBoardIndex = state.boards.findIndex(b => b.id === state.activeBoardId);
-                    if (activeBoardIndex === -1) return state;
-
-                    const currentBoard = state.boards[activeBoardIndex];
-                    const newColumns = currentBoard.columns.map((col) =>
-                        col.id === columnId ? { ...col, title } : col
-                    );
-
-                    const newBoards = [...state.boards];
-                    newBoards[activeBoardIndex] = { ...currentBoard, columns: newColumns };
-
-                    api.saveBoardState(newColumns);
-                    return { boards: newBoards };
-                });
+            updateColumnTitle: async (columnId: string, title: string) => {
+                try {
+                    await api.updateColumn(columnId, { title });
+                    set((state) => {
+                        const activeBoardIndex = state.boards.findIndex(b => b.id === state.activeBoardId);
+                        if (activeBoardIndex === -1) return state;
+                        const currentBoard = state.boards[activeBoardIndex];
+                        const newColumns = currentBoard.columns.map((col) =>
+                            col.id === columnId ? { ...col, title } : col
+                        );
+                        const newBoards = [...state.boards];
+                        newBoards[activeBoardIndex] = { ...currentBoard, columns: newColumns };
+                        return { boards: newBoards };
+                    });
+                } catch (error) {
+                    console.error("Store: Error updating column", error);
+                }
             },
 
-            deleteColumn: (columnId: string) => {
-                set((state) => {
-                    const activeBoardIndex = state.boards.findIndex(b => b.id === state.activeBoardId);
-                    if (activeBoardIndex === -1) return state;
-
-                    const currentBoard = state.boards[activeBoardIndex];
-                    const newColumns = currentBoard.columns.filter((col) => col.id !== columnId);
-
-                    const newBoards = [...state.boards];
-                    newBoards[activeBoardIndex] = { ...currentBoard, columns: newColumns };
-
-                    api.saveBoardState(newColumns);
-                    return { boards: newBoards };
-                });
+            deleteColumn: async (columnId: string) => {
+                try {
+                    await api.deleteColumn(columnId);
+                    set((state) => {
+                        const activeBoardIndex = state.boards.findIndex(b => b.id === state.activeBoardId);
+                        if (activeBoardIndex === -1) return state;
+                        const currentBoard = state.boards[activeBoardIndex];
+                        const newColumns = currentBoard.columns.filter((col) => col.id !== columnId);
+                        const newBoards = [...state.boards];
+                        newBoards[activeBoardIndex] = { ...currentBoard, columns: newColumns };
+                        return { boards: newBoards };
+                    });
+                } catch (error) {
+                    console.error("Store: Error deleting column", error);
+                }
             },
 
             setSearchQuery: (query: string) => set({ searchQuery: query }),
@@ -353,7 +368,6 @@ export const useKanbanStore = create<KanbanState>()(
         {
             name: 'kanban-storage-vite',
             partialize: (state) => ({
-                boards: state.boards,
                 activeBoardId: state.activeBoardId,
                 language: state.language
             }),

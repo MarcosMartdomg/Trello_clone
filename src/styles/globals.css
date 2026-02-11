@@ -92,3 +92,8 @@ body {
     @apply bg-background text-foreground;
   }
 }
+@layer utilities {
+  .rdp-vhidden {
+    @apply hidden;
+  }
+}

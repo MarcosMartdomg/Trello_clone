@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState } from "react"
+import React, { useState, useEffect } from "react"
 import { Users, X, Search, UserPlus, Trash2 } from "lucide-react"
 import {
     Dialog,
@@ -12,7 +12,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useKanbanStore } from "@/lib/store"
-import { mockMembers } from "@/lib/kanban-data"
+import { api } from "@/lib/api"
 import { useTranslation } from "@/hooks/use-translation"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
@@ -26,19 +26,54 @@ export function MembersModal({ isOpen, onClose }: MembersModalProps) {
     const { t } = useTranslation()
     const { boards, activeBoardId, addBoardMember, removeBoardMember } = useKanbanStore()
     const [searchQuery, setSearchQuery] = useState("")
+    const [searchResults, setSearchResults] = useState<any[]>([])
+    const [isSearching, setIsSearching] = useState(false)
+    const [memberProfiles, setMemberProfiles] = useState<any[]>([])
 
     const currentBoard = boards.find(b => b.id === activeBoardId)
+
+    useEffect(() => {
+        const performSearch = async () => {
+            if (!searchQuery.trim()) {
+                setSearchResults([])
+                return
+            }
+            setIsSearching(true)
+            try {
+                const results = await api.searchUsers(searchQuery)
+                setSearchResults(results)
+            } catch (error) {
+                console.error("MembersModal: Search error", error)
+            } finally {
+                setIsSearching(false)
+            }
+        }
+
+        const timer = setTimeout(performSearch, 300)
+        return () => clearTimeout(timer)
+    }, [searchQuery])
+
+    // Load member profiles when board changes
+    useEffect(() => {
+        const loadProfiles = async () => {
+            if (!currentBoard?.members?.length) {
+                setMemberProfiles([])
+                return
+            }
+            try {
+                const profiles = await api.fetchProfiles(currentBoard.members.map(m => m.id))
+                setMemberProfiles(profiles)
+            } catch (error) {
+                console.error("MembersModal: Load profiles error", error)
+            }
+        }
+        loadProfiles()
+    }, [currentBoard?.members])
+
     if (!currentBoard) return null
 
     const boardMembersIds = new Set((currentBoard.members || []).map(m => m.id))
-
-    // Only show results if there is a search query (mimicking database search)
-    const availableToInvite = searchQuery.trim() === ""
-        ? []
-        : mockMembers.filter(m =>
-            !boardMembersIds.has(m.id) &&
-            m.name.toLowerCase().includes(searchQuery.toLowerCase())
-        )
+    const filteredResults = searchResults.filter(u => !boardMembersIds.has(u.id))
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
@@ -66,16 +101,16 @@ export function MembersModal({ isOpen, onClose }: MembersModalProps) {
                         </h4>
 
                         <div className="space-y-3">
-                            {(currentBoard.members || []).map((member) => (
+                            {memberProfiles.map((member) => (
                                 <div key={member.id} className="flex items-center justify-between group p-3 rounded-2xl bg-secondary/20 border border-border/40 hover:bg-secondary/30 transition-all duration-200">
                                     <div className="flex items-center gap-3">
                                         <Avatar className="h-9 w-9 border-2 border-background ring-2 ring-primary/10 transition-transform group-hover:scale-105">
-                                            <AvatarFallback className={cn("text-[10px] font-black text-white shadow-inner", member.color)}>
-                                                {member.avatar}
+                                            <AvatarFallback className={cn("text-[10px] font-black text-white shadow-inner bg-primary/20 text-primary")}>
+                                                {member.full_name?.[0]?.toUpperCase() || 'U'}
                                             </AvatarFallback>
                                         </Avatar>
                                         <div>
-                                            <p className="text-sm font-bold text-foreground/90">{member.name}</p>
+                                            <p className="text-sm font-bold text-foreground/90">{member.full_name}</p>
                                         </div>
                                     </div>
                                     <Button
@@ -88,7 +123,7 @@ export function MembersModal({ isOpen, onClose }: MembersModalProps) {
                                     </Button>
                                 </div>
                             ))}
-                            {(!currentBoard.members || currentBoard.members.length === 0) && (
+                            {memberProfiles.length === 0 && (
                                 <p className="text-xs text-muted-foreground italic text-center py-4 bg-secondary/10 rounded-2xl border border-dashed border-border/60">
                                     {t('members.noMembers')}
                                 </p>
@@ -114,19 +149,22 @@ export function MembersModal({ isOpen, onClose }: MembersModalProps) {
                         </div>
 
                         <div className="max-h-[200px] overflow-y-auto pr-2 space-y-2 scrollbar-thin scrollbar-thumb-primary/10">
-                            {availableToInvite.map((member) => (
+                            {filteredResults.map((user) => (
                                 <button
-                                    key={member.id}
-                                    onClick={() => addBoardMember(currentBoard.id, member)}
+                                    key={user.id}
+                                    onClick={() => addBoardMember(currentBoard.id, user.id)}
                                     className="flex items-center justify-between w-full p-2.5 rounded-xl hover:bg-primary/5 group transition-all duration-200 active:scale-[0.98]"
                                 >
                                     <div className="flex items-center gap-3">
                                         <Avatar className="h-8 w-8">
-                                            <AvatarFallback className={cn("text-[9px] font-black text-white", member.color)}>
-                                                {member.avatar}
+                                            <AvatarFallback className={cn("text-[9px] font-black text-white bg-primary/20 text-primary")}>
+                                                {user.full_name?.[0]?.toUpperCase() || 'U'}
                                             </AvatarFallback>
                                         </Avatar>
-                                        <p className="text-sm font-semibold text-foreground/80 group-hover:text-primary transition-colors">{member.name}</p>
+                                        <div>
+                                            <p className="text-sm font-semibold text-foreground/80 group-hover:text-primary transition-colors">{user.full_name}</p>
+                                            {user.email && <p className="text-[10px] text-muted-foreground">{user.email}</p>}
+                                        </div>
                                     </div>
                                     <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary/5 text-primary opacity-0 group-hover:opacity-100 transition-all transform scale-90 group-hover:scale-100">
                                         <UserPlus className="w-4 h-4" />
@@ -138,9 +176,14 @@ export function MembersModal({ isOpen, onClose }: MembersModalProps) {
                                     {t('members.searchToInvite')}
                                 </p>
                             )}
-                            {availableToInvite.length === 0 && searchQuery && (
+                            {filteredResults.length === 0 && searchQuery && !isSearching && (
                                 <p className="text-xs text-muted-foreground italic text-center py-4">
                                     {t('members.noResults', { query: searchQuery })}
+                                </p>
+                            )}
+                            {isSearching && (
+                                <p className="text-xs text-muted-foreground italic text-center py-4">
+                                    {t('common.searching')}...
                                 </p>
                             )}
                         </div>

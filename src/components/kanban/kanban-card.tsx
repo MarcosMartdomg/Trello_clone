@@ -1,7 +1,8 @@
 "use client"
 
 import { useState } from "react"
-import { CheckSquare, GripVertical, MoreHorizontal } from "lucide-react"
+import { format } from "date-fns"
+import { CheckSquare, GripVertical, MoreHorizontal, Clock } from "lucide-react"
 import { useSortable } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
 import { cn } from "@/lib/utils"
@@ -55,7 +56,7 @@ export function KanbanCard({ card, columnTitle }: KanbanCardProps) {
     )
   }
 
-  const checklistStats = card.checklist ? {
+  const checklistStats = Array.isArray(card.checklist) ? {
     done: card.checklist.filter(i => i.completed).length,
     total: card.checklist.length
   } : { done: 0, total: 0 };
@@ -106,7 +107,7 @@ export function KanbanCard({ card, columnTitle }: KanbanCardProps) {
         )}
 
         {/* Labels */}
-        {card.labels && card.labels.length > 0 && (
+        {Array.isArray(card.labels) && card.labels.length > 0 && (
           <div className="flex flex-wrap gap-1.5 mb-4">
             {card.labels.map((label) => (
               <span
@@ -123,31 +124,46 @@ export function KanbanCard({ card, columnTitle }: KanbanCardProps) {
         )}
 
         {/* Bottom row: checklist + members */}
-        <div className="flex items-center justify-between mt-auto pt-2">
-          {checklistStats.total > 0 ? (
-            <div className="flex flex-col gap-2 flex-1 max-w-[130px]">
-              <div className="flex items-center justify-between text-[10px] font-black text-foreground/80 uppercase tracking-widest">
-                <div className="flex items-center gap-1.5">
-                  <CheckSquare className="w-3.5 h-3.5 text-primary" />
-                  <span>{t('board.progress')}</span>
+        <div className="flex items-center justify-between mt-auto pt-2 gap-3">
+          <div className="flex items-center gap-3">
+            {/* Due Date */}
+            {card.due_date && (
+              <div className={cn(
+                "flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-md transition-colors",
+                new Date(card.due_date) < new Date()
+                  ? "bg-red-500/10 text-red-500 ring-1 ring-red-500/20"
+                  : new Date(card.due_date) > new Date()
+                    ? "bg-emerald-500/10 text-emerald-500 ring-1 ring-emerald-500/20"
+                    : "bg-secondary/50 text-muted-foreground ring-1 ring-border/50"
+              )}>
+                <Clock className="w-3 h-3" />
+                <span>{format(new Date(card.due_date), "MMM d")}</span>
+              </div>
+            )}
+
+            {/* Checklist */}
+            {checklistStats.total > 0 && (
+              <div className="flex flex-col gap-1 w-[100px]">
+                <div className="flex items-center justify-between text-[9px] font-black text-muted-foreground/70 uppercase tracking-widest">
+                  <div className="flex items-center gap-1">
+                    <CheckSquare className="w-3 h-3" />
+                    <span>{Math.round((checklistStats.done / checklistStats.total) * 100)}%</span>
+                  </div>
                 </div>
-                <span className="text-primary">{Math.round((checklistStats.done / checklistStats.total) * 100)}%</span>
+                <div className="h-1.5 w-full bg-secondary/50 rounded-full overflow-hidden">
+                  <div
+                    className={cn(
+                      "h-full transition-all duration-500 ease-out",
+                      checklistStats.done === checklistStats.total
+                        ? "bg-emerald-500"
+                        : "bg-primary"
+                    )}
+                    style={{ width: `${(checklistStats.done / checklistStats.total) * 100}%` }}
+                  />
+                </div>
               </div>
-              <div className="h-2 w-full bg-secondary/50 rounded-full overflow-hidden shadow-inner ring-1 ring-border/5">
-                <div
-                  className={cn(
-                    "h-full transition-all duration-700 ease-out shadow-[0_0_12px_rgba(59,130,246,0.3)]",
-                    checklistStats.done === checklistStats.total
-                      ? "bg-gradient-to-r from-emerald-400 to-emerald-600 shadow-[0_0_12px_rgba(16,185,129,0.3)]"
-                      : "bg-gradient-to-r from-primary to-blue-600"
-                  )}
-                  style={{ width: `${(checklistStats.done / checklistStats.total) * 100}%` }}
-                />
-              </div>
-            </div>
-          ) : (
-            <div /> // Spacer
-          )}
+            )}
+          </div>
 
           {/* Member avatars */}
           {card.members && card.members.length > 0 && (

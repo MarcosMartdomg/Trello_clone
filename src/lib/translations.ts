@@ -101,6 +101,9 @@ export const translations = {
             saveChanges: "Guardar Cambios",
             createdCard: "Creó esta tarjeta",
             movedCard: "Movió de {from} a {to}",
+            save: "Guardar",
+            remove: "Quitar",
+            dueDate: "Fecha de vencimiento",
         },
         tags: {
             Research: "Investigación",
@@ -230,6 +233,9 @@ export const translations = {
             saveChanges: "Save Changes",
             createdCard: "Created this card",
             movedCard: "Moved from {from} to {to}",
+            save: "Save",
+            remove: "Remove",
+            dueDate: "Due Date",
         },
         tags: {
             Research: "Research",
