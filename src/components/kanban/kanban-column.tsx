@@ -2,7 +2,45 @@
 "use client"
 
 import React, { useState, useRef, useEffect } from "react"
-import { MoreHorizontal, Plus, Inbox, Circle, Loader, Eye, CheckCircle } from "lucide-react"
+import {
+  MoreHorizontal,
+  Plus,
+  Inbox,
+  Circle,
+  Loader,
+  Eye,
+  CheckCircle,
+  Star,
+  Heart,
+  Zap,
+  Flag,
+  Tag,
+  Bookmark,
+  Briefcase,
+  Calendar,
+  Camera,
+  Cloud,
+  Code,
+  Coffee,
+  Database,
+  File,
+  Gift,
+  Home,
+  Image,
+  Link,
+  Lock,
+  Mail,
+  Map,
+  Music,
+  Phone,
+  Search,
+  Settings,
+  ShoppingBag,
+  Smile,
+  Trophy,
+  User,
+  Video
+} from "lucide-react"
 import { useDroppable } from "@dnd-kit/core"
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable"
 
@@ -12,6 +50,11 @@ import { KanbanCard } from "./kanban-card"
 import { useKanbanStore } from "@/lib/store"
 import { ConfirmDeleteModal } from "./confirm-delete-modal"
 import { useTranslation } from "@/hooks/use-translation"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
 
 const iconMap: Record<string, React.ElementType> = {
   inbox: Inbox,
@@ -19,6 +62,36 @@ const iconMap: Record<string, React.ElementType> = {
   loader: Loader,
   eye: Eye,
   "check-circle": CheckCircle,
+  star: Star,
+  heart: Heart,
+  zap: Zap,
+  flag: Flag,
+  tag: Tag,
+  bookmark: Bookmark,
+  briefcase: Briefcase,
+  calendar: Calendar,
+  camera: Camera,
+  cloud: Cloud,
+  code: Code,
+  coffee: Coffee,
+  database: Database,
+  file: File,
+  gift: Gift,
+  home: Home,
+  image: Image,
+  link: Link,
+  lock: Lock,
+  mail: Mail,
+  map: Map,
+  music: Music,
+  phone: Phone,
+  search: Search,
+  settings: Settings,
+  shopping: ShoppingBag,
+  smile: Smile,
+  trophy: Trophy,
+  user: User,
+  video: Video,
 }
 
 const statusColors: Record<string, string> = {
@@ -35,12 +108,13 @@ interface KanbanColumnProps {
 }
 
 export function KanbanColumnComponent({ column, isOverlay }: KanbanColumnProps) {
-  const { addCard, updateColumnTitle, deleteColumn } = useKanbanStore()
+  const { addCard, updateColumn, deleteColumn } = useKanbanStore()
   const [isAddingCard, setIsAddingCard] = useState(false)
   const [newCardTitle, setNewCardTitle] = useState("")
   const [isEditingTitle, setIsEditingTitle] = useState(false)
   const [title, setTitle] = useState(column.title)
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
+  const [isIconPickerOpen, setIsIconPickerOpen] = useState(false)
   const { t } = useTranslation()
 
   const titleInputRef = useRef<HTMLInputElement>(null)
@@ -88,8 +162,13 @@ export function KanbanColumnComponent({ column, isOverlay }: KanbanColumnProps) 
   const handleTitleSubmit = () => {
     setIsEditingTitle(false)
     if (title.trim() !== column.title) {
-      updateColumnTitle(column.id, title)
+      updateColumn(column.id, { title })
     }
+  }
+
+  const handleIconChange = (iconName: string) => {
+    updateColumn(column.id, { icon: iconName })
+    setIsIconPickerOpen(false)
   }
 
   return (
@@ -104,7 +183,36 @@ export function KanbanColumnComponent({ column, isOverlay }: KanbanColumnProps) 
       {/* Column header */}
       <div className="flex items-center justify-between px-4 py-3 shrink-0">
         <div className="flex items-center gap-2.5 flex-1 min-w-0">
-          <Icon className={cn("w-4 h-4 shrink-0", statusColors[column.id] || "text-muted-foreground")} />
+          <Popover open={isIconPickerOpen} onOpenChange={setIsIconPickerOpen}>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                className={cn(
+                  "p-1 rounded-md hover:bg-black/5 transition-colors shrink-0 outline-none",
+                  statusColors[column.id] || "text-muted-foreground"
+                )}
+              >
+                <Icon className="w-4 h-4 cursor-pointer" />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[280px] p-2 bg-card/95 backdrop-blur-xl border-white/10 rounded-2xl shadow-2xl z-50 overflow-hidden" align="start">
+              <div className="grid grid-cols-6 gap-1 max-h-[300px] overflow-y-auto p-1 custom-scrollbar">
+                {Object.entries(iconMap).map(([name, IconComp]) => (
+                  <button
+                    key={name}
+                    onClick={() => handleIconChange(name)}
+                    className={cn(
+                      "p-2 rounded-xl hover:bg-primary/20 hover:text-primary transition-all flex items-center justify-center",
+                      column.icon === name ? "bg-primary/20 text-primary" : "text-muted-foreground"
+                    )}
+                    title={name}
+                  >
+                    <IconComp className="w-4 h-4" />
+                  </button>
+                ))}
+              </div>
+            </PopoverContent>
+          </Popover>
 
           {isEditingTitle ? (
             <input

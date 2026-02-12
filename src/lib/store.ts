@@ -43,7 +43,7 @@ interface KanbanState {
     addActivity: (cardId: string, text: string, type: ActivityLog['type']) => void;
 
     addColumn: (title: string) => Promise<void>;
-    updateColumnTitle: (columnId: string, title: string) => Promise<void>;
+    updateColumn: (columnId: string, updates: Partial<KanbanColumn>) => Promise<void>;
     deleteColumn: (columnId: string) => Promise<void>;
     setSearchQuery: (query: string) => void;
     toggleTagFilter: (tag: string) => void;
@@ -315,15 +315,15 @@ export const useKanbanStore = create<KanbanState>()(
                 }
             },
 
-            updateColumnTitle: async (columnId: string, title: string) => {
+            updateColumn: async (columnId: string, updates: Partial<KanbanColumn>) => {
                 try {
-                    await api.updateColumn(columnId, { title });
+                    await api.updateColumn(columnId, updates);
                     set((state) => {
                         const activeBoardIndex = state.boards.findIndex(b => b.id === state.activeBoardId);
                         if (activeBoardIndex === -1) return state;
                         const currentBoard = state.boards[activeBoardIndex];
                         const newColumns = currentBoard.columns.map((col) =>
-                            col.id === columnId ? { ...col, title } : col
+                            col.id === columnId ? { ...col, ...updates } : col
                         );
                         const newBoards = [...state.boards];
                         newBoards[activeBoardIndex] = { ...currentBoard, columns: newColumns };

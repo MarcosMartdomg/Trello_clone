@@ -28,7 +28,8 @@ import {
     AlignLeft,
     Activity,
     MoreHorizontal,
-    Clock
+    Clock,
+    Plus
 } from "lucide-react"
 import type { KanbanCard } from "@/lib/kanban-data"
 import { useKanbanStore } from "@/lib/store"
@@ -372,80 +373,78 @@ export function CardDetailsModal({ card, columnTitle, isOpen, onClose }: CardDet
                                             {t('board.dates')}
                                         </Button>
                                     </PopoverTrigger>
-                                    <PopoverContent className="w-auto p-0 shadow-2xl rounded-xl border-border/60 bg-card overflow-hidden" align="start" sideOffset={8}>
+                                    <PopoverContent className="w-[340px] p-0 shadow-2xl rounded-2xl border-border/40 bg-card overflow-hidden" align="start" sideOffset={8}>
                                         {/* Header */}
-                                        <div className="flex items-center justify-between p-3 border-b border-border/40 bg-secondary/20">
-                                            <span className="text-sm font-bold text-foreground/80 flex-1 text-center pl-7">{t('board.dates')}</span>
+                                        <div className="flex items-center justify-between px-5 py-3.5 border-b border-border/30">
+                                            <div className="w-7" />
+                                            <span className="text-sm font-bold text-foreground">{t('board.dates')}</span>
                                             <Button
                                                 variant="ghost"
                                                 size="icon"
-                                                className="h-6 w-6 rounded-full hover:bg-secondary/50"
+                                                className="h-7 w-7 rounded-full hover:bg-secondary/60"
                                                 onClick={() => setIsOpenDatePopover(false)}
                                             >
-                                                <XIcon className="w-3.5 h-3.5 opacity-70" />
+                                                <XIcon className="w-3.5 h-3.5 opacity-60" />
                                             </Button>
                                         </div>
 
                                         {/* Calendar */}
-                                        <div className="p-2 flex justify-center bg-card/50">
+                                        <div className="px-2 pt-2 pb-0 flex justify-center">
                                             <Calendar
                                                 mode="single"
                                                 selected={tempDate}
                                                 onSelect={handleDateSelect}
                                                 initialFocus
                                                 className="rounded-lg border-0 shadow-none"
-                                                classNames={{
-                                                    day_selected: "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground font-bold",
-                                                    day_today: "bg-accent text-accent-foreground font-bold",
-                                                }}
                                             />
                                         </div>
 
                                         {/* Inputs Section */}
-                                        <div className="p-4 pt-0 space-y-4">
-                                            <div className="space-y-1.5">
-                                                <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5 ml-0.5">
-                                                    {t('board.dueDate')}
-                                                </div>
-                                                <div className="flex gap-2">
-                                                    <div className="flex items-center h-9 px-2.5 rounded-lg border border-border/60 bg-background/50 flex-1 gap-2 focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary/50 transition-all">
+                                        <div className="px-5 pb-5 space-y-5">
+                                            {/* Due Date */}
+                                            <div className="space-y-2.5">
+                                                <span className="text-[11px] font-bold text-muted-foreground/70 uppercase tracking-wider">{t('board.dueDate')}</span>
+                                                <div className="flex gap-2.5">
+                                                    <div className="flex items-center h-10 px-3 rounded-lg border border-border/50 bg-background/60 flex-1 gap-2.5 focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary/40 transition-all">
                                                         <input
                                                             type="checkbox"
                                                             checked={dueDateChecked}
                                                             onChange={(e) => setDueDateChecked(e.target.checked)}
-                                                            className="w-4 h-4 rounded border-border text-primary focus:ring-0 cursor-pointer"
+                                                            className="w-4 h-4 rounded border-border text-primary focus:ring-0 cursor-pointer accent-primary"
                                                         />
                                                         <input
                                                             type="text"
-                                                            value={tempDate ? format(tempDate, "P") : ""}
+                                                            value={tempDate ? format(tempDate, "dd/MM/yyyy") : ""}
                                                             readOnly
-                                                            className="text-sm font-medium bg-transparent border-0 w-full focus:outline-none cursor-default text-foreground/90 pl-1"
-                                                            placeholder="D/M/YYYY"
+                                                            className="text-sm font-medium bg-transparent border-0 w-full focus:outline-none cursor-default text-foreground/90"
+                                                            placeholder="D/M/AAAA"
                                                         />
                                                     </div>
-                                                    <div className="w-24">
-                                                        <Input
-                                                            type="time"
-                                                            value={tempDate ? format(tempDate, "HH:mm") : ""}
-                                                            onChange={handleTimeChange}
-                                                            className="h-9 text-sm font-medium bg-background/50 border-border/60 focus-visible:ring-primary/20"
-                                                        />
+                                                    <div className="w-[100px]">
+                                                        <div className="flex items-center h-10 px-3 rounded-lg border border-border/50 bg-background/60 gap-2 focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary/40 transition-all">
+                                                            <input
+                                                                type="time"
+                                                                value={tempDate ? format(tempDate, "HH:mm") : ""}
+                                                                onChange={handleTimeChange}
+                                                                className="text-sm font-medium bg-transparent border-0 w-full focus:outline-none text-foreground/90 [&::-webkit-calendar-picker-indicator]:opacity-40 [&::-webkit-calendar-picker-indicator]:hover:opacity-80"
+                                                            />
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
 
                                             {/* Buttons */}
-                                            <div className="grid grid-cols-1 gap-2 pt-2">
+                                            <div className="grid grid-cols-1 gap-2.5 pt-1">
                                                 <Button
                                                     onClick={saveDate}
-                                                    className="w-full h-9 rounded-lg font-bold shadow-md shadow-primary/10 hover:shadow-primary/20 transition-all"
+                                                    className="w-full h-10 rounded-xl font-bold text-sm shadow-md shadow-primary/10 hover:shadow-primary/20 transition-all"
                                                 >
                                                     {t('board.save')}
                                                 </Button>
                                                 <Button
                                                     variant="secondary"
                                                     onClick={removeDate}
-                                                    className="w-full h-9 rounded-lg font-bold bg-secondary/50 hover:bg-destructive/10 hover:text-destructive border border-transparent hover:border-destructive/20 transition-all"
+                                                    className="w-full h-10 rounded-xl font-bold text-sm bg-secondary/40 hover:bg-destructive/10 hover:text-destructive border border-transparent hover:border-destructive/20 transition-all"
                                                 >
                                                     {t('board.remove')}
                                                 </Button>
@@ -458,25 +457,114 @@ export function CardDetailsModal({ card, columnTitle, isOpen, onClose }: CardDet
 
                         <div className="space-y-4">
                             <h4 className="text-[11px] font-black text-muted-foreground/70 uppercase tracking-[0.2em] ml-1">{t('board.actions')}</h4>
-                            <div className="space-y-2 bg-secondary/10 p-3 rounded-2xl border border-border/30">
-                                <p className="text-[10px] font-black text-muted-foreground/60 uppercase tracking-widest ml-1">{t('board.priority')}</p>
-                                <div className="grid grid-cols-1 gap-1.5">
-                                    {priorities.map(p => (
-                                        <Button
-                                            key={p.id}
-                                            variant={card.priority === p.id ? "secondary" : "ghost"}
-                                            className={cn(
-                                                "w-full justify-start gap-2.5 h-9 text-[11px] font-bold uppercase tracking-wider rounded-xl transition-all",
-                                                card.priority === p.id
-                                                    ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20 scale-[1.02]"
-                                                    : "hover:bg-primary/10 hover:text-primary"
-                                            )}
-                                            onClick={() => updateCard(card.id, { priority: p.id })}
-                                        >
-                                            <div className={cn("w-2 h-2 rounded-full", p.color, "ring-1 ring-white/20")} />
-                                            {p.label}
-                                        </Button>
-                                    ))}
+
+                            {/* Labels Manager */}
+                            <div className="space-y-3 bg-secondary/10 p-3 rounded-2xl border border-border/30">
+                                <p className="text-[10px] font-black text-muted-foreground/60 uppercase tracking-widest ml-1">{t('board.labels')}</p>
+
+                                <div className="space-y-3">
+                                    {/* Active Labels for easy removal */}
+                                    <div className="flex flex-wrap gap-1.5 min-h-[20px]">
+                                        {Array.isArray(card.labels) && card.labels.length > 0 ? (
+                                            card.labels.map(label => (
+                                                <button
+                                                    key={label.id || label.text}
+                                                    onClick={() => {
+                                                        const newLabels = card.labels.filter(l => (l.id || l.text) !== (label.id || label.text));
+                                                        updateCard(card.id, { labels: newLabels });
+                                                    }}
+                                                    className={cn(
+                                                        "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[9px] font-black uppercase tracking-wider shadow-sm transition-all hover:scale-105 active:scale-95 group",
+                                                        label.color
+                                                    )}
+                                                >
+                                                    {t(`tags.${label.text}`) !== `tags.${label.text}` ? t(`tags.${label.text}`) : label.text}
+                                                    <XIcon className="w-2 h-2 opacity-50 group-hover:opacity-100" />
+                                                </button>
+                                            ))
+                                        ) : (
+                                            <span className="text-[9px] text-muted-foreground/50 italic ml-1">{t('board.noLabels')}</span>
+                                        )}
+                                    </div>
+
+                                    <div className="h-[1px] bg-border/30 mx-1" />
+
+                                    {/* Predefined & Quick Add */}
+                                    <div className="grid grid-cols-1 gap-1.5">
+                                        {[
+                                            { id: 'low', text: 'low', color: 'bg-blue-500/20 text-blue-500 ring-1 ring-blue-500/30' },
+                                            { id: 'medium', text: 'medium', color: 'bg-amber-500/20 text-amber-500 ring-1 ring-amber-500/30' },
+                                            { id: 'high', text: 'high', color: 'bg-orange-500/20 text-orange-500 ring-1 ring-orange-500/30' },
+                                            { id: 'urgent', text: 'urgent', color: 'bg-red-500/20 text-red-500 ring-1 ring-red-500/30' },
+                                        ].map(preset => {
+                                            const isActive = card.labels?.some(l => l.id === preset.id || l.text === preset.text);
+                                            return (
+                                                <Button
+                                                    key={preset.id}
+                                                    variant="ghost"
+                                                    disabled={isActive}
+                                                    className={cn(
+                                                        "w-full justify-start gap-2.5 h-9 text-[11px] font-bold uppercase tracking-wider rounded-xl transition-all hover:bg-primary/10 hover:text-primary",
+                                                        isActive && "opacity-50 grayscale"
+                                                    )}
+                                                    onClick={() => {
+                                                        const newLabels = [...(card.labels || []), { id: preset.id, text: preset.text, color: preset.color }];
+                                                        updateCard(card.id, { labels: newLabels });
+                                                    }}
+                                                >
+                                                    <div className={cn("w-2 h-2 rounded-full", preset.color.split(' ')[0])} />
+                                                    {t(`tags.${preset.text}`)}
+                                                </Button>
+                                            );
+                                        })}
+                                    </div>
+
+                                    {/* Custom Label Creator (Minimal) */}
+                                    <Popover>
+                                        <PopoverTrigger asChild>
+                                            <Button variant="outline" className="w-full h-8 text-[9px] font-black uppercase tracking-widest border-dashed border-border/60 hover:border-primary/40 hover:bg-primary/5 transition-all rounded-xl mt-2">
+                                                <Plus className="w-3 h-3 mr-1.5" />
+                                                {t('board.createLabel')}
+                                            </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-64 p-4 space-y-4 bg-card/95 backdrop-blur-xl border-border/50 rounded-2xl shadow-2xl">
+                                            <div className="space-y-2">
+                                                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">{t('board.labelName')}</label>
+                                                <Input
+                                                    id="new-label-name"
+                                                    placeholder="..."
+                                                    className="h-9 text-xs bg-secondary/20 border-border/40 focus-visible:ring-primary/20 rounded-xl"
+                                                />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">{t('board.cardColor')}</label>
+                                                <div className="grid grid-cols-5 gap-2">
+                                                    {[
+                                                        'bg-red-500', 'bg-orange-500', 'bg-amber-500', 'bg-emerald-500',
+                                                        'bg-blue-500', 'bg-violet-500', 'bg-purple-500', 'bg-pink-500',
+                                                        'bg-slate-500', 'bg-zinc-500'
+                                                    ].map(color => (
+                                                        <button
+                                                            key={color}
+                                                            className={cn("w-full aspect-square rounded-lg transition-all hover:scale-110", color)}
+                                                            onClick={() => {
+                                                                const name = (document.getElementById('new-label-name') as HTMLInputElement)?.value;
+                                                                if (!name) return;
+                                                                const colorClass = `${color}/20 ${color.replace('bg-', 'text-')} ring-1 ${color.replace('bg-', 'ring-')}/30`;
+                                                                const newLabels = [...(card.labels || []), {
+                                                                    id: `custom-${Date.now()}`,
+                                                                    text: name,
+                                                                    color: colorClass
+                                                                }];
+                                                                updateCard(card.id, { labels: newLabels });
+                                                                (document.getElementById('new-label-name') as HTMLInputElement).value = '';
+                                                            }}
+                                                        />
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </PopoverContent>
+                                    </Popover>
                                 </div>
                             </div>
 

@@ -67,10 +67,10 @@ export function KanbanCard({ card, columnTitle }: KanbanCardProps) {
         ref={setNodeRef}
         style={style}
         className={cn(
-          "group relative rounded-xl border border-border bg-card p-4 cursor-grab active:cursor-grabbing transition-all duration-300",
+          "group relative rounded-xl border border-border bg-card p-4 cursor-grab active:cursor-grabbing transition-all duration-300 ease-in-out",
           card.color && `${card.color} border-transparent shadow-sm`,
-          "hover:border-primary/40 hover:bg-card/95 hover:backdrop-blur-xl hover:shadow-[0_25px_60px_-15px_rgba(0,0,0,0.5)] hover:shadow-primary/20",
-          "hover:-translate-y-2 hover:scale-[1.03] ring-offset-background hover:ring-2 hover:ring-primary/10",
+          "hover:border-primary/20 hover:bg-card/98 hover:shadow-[0_12px_24px_-8px_rgba(0,0,0,0.15)]",
+          "hover:-translate-y-1 hover:scale-[1.005] ring-offset-background hover:ring-2 hover:ring-primary/5",
         )}
         onDoubleClick={() => setIsModalOpen(true)}
         {...attributes}
@@ -80,9 +80,6 @@ export function KanbanCard({ card, columnTitle }: KanbanCardProps) {
         {/* Top row: priority dot + menu */}
         <div className="flex items-start justify-between mb-3">
           <div className="flex items-center gap-2.5 overflow-hidden">
-            {card.priority && (
-              <div className={cn("w-2.5 h-2.5 rounded-full shrink-0 ring-4 ring-offset-0 transition-all group-hover:scale-110", priorityDot[card.priority] || "bg-muted", "ring-primary/5")} />
-            )}
             <h4 className="text-sm font-bold text-foreground leading-tight truncate group-hover:text-primary transition-colors">
               {card.title}
             </h4>
