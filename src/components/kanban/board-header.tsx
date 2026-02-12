@@ -17,7 +17,7 @@ import { MembersModal } from "./members-modal"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 
 export function BoardHeader() {
-    const { searchQuery, setSearchQuery, boards, activeBoardId, language, setLanguage } = useKanbanStore()
+    const { searchQuery, setSearchQuery, boards, activeBoardId, language, setLanguage, currentView } = useKanbanStore()
     const { theme, setTheme } = useTheme()
     const { t } = useTranslation()
     const [isMembersModalOpen, setIsMembersModalOpen] = useState(false)
@@ -26,19 +26,42 @@ export function BoardHeader() {
         return boards.find(b => b.id === activeBoardId) || null
     }, [boards, activeBoardId])
 
-    if (!activeBoard) return null
+    const isTasksView = currentView === 'my-tasks'
+    const isBoardsListView = currentView === 'boards-list'
+
+    if (!activeBoard && !isTasksView && !isBoardsListView) return null
 
     return (
         <header className="flex items-center justify-between px-6 h-14 border-b border-border bg-background/80 backdrop-blur-sm shrink-0 z-10">
             <div className="flex items-center gap-4">
-                <div>
-                    <h1 className="text-base font-semibold text-foreground tracking-tight">
-                        {activeBoard.name}
-                    </h1>
-                    <p className="text-xs text-muted-foreground lowercase">
-                        {activeBoard.type === 'shared' ? t('members.shared') : t('members.personal')} {t('header.workspace')}
-                    </p>
-                </div>
+                {isTasksView ? (
+                    <div>
+                        <h1 className="text-base font-semibold text-foreground tracking-tight">
+                            {t('sidebar.myTasks')}
+                        </h1>
+                        <p className="text-xs text-muted-foreground lowercase">
+                            {t('header.allTasksAssigned')}
+                        </p>
+                    </div>
+                ) : isBoardsListView ? (
+                    <div>
+                        <h1 className="text-base font-semibold text-foreground tracking-tight">
+                            {t('sidebar.myBoards')}
+                        </h1>
+                        <p className="text-xs text-muted-foreground lowercase">
+                            {t('common.manageYourWorkspaces')}
+                        </p>
+                    </div>
+                ) : activeBoard ? (
+                    <div>
+                        <h1 className="text-base font-semibold text-foreground tracking-tight">
+                            {activeBoard.name}
+                        </h1>
+                        <p className="text-xs text-muted-foreground lowercase">
+                            {activeBoard.type === 'shared' ? t('members.shared') : t('members.personal')} {t('header.workspace')}
+                        </p>
+                    </div>
+                ) : null}
             </div>
 
             <div className="flex items-center gap-2">
@@ -69,7 +92,7 @@ export function BoardHeader() {
                 </button>
 
                 {/* Members button & Avatars */}
-                {activeBoard.type === 'shared' && (
+                {!isTasksView && activeBoard?.type === 'shared' && (
                     <div className="hidden sm:flex items-center gap-1.5 p-1 rounded-xl bg-secondary/30 border border-border/50">
                         <div className="flex -space-x-2 mr-2 ml-1">
                             {activeBoard.members?.slice(0, 3).map((member) => (

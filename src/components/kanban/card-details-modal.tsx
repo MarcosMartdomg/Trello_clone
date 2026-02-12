@@ -35,6 +35,7 @@ import type { KanbanCard } from "@/lib/kanban-data"
 import { useKanbanStore } from "@/lib/store"
 import { cn } from "@/lib/utils"
 import { ConfirmDeleteModal } from "./confirm-delete-modal"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useTranslation } from "@/hooks/use-translation"
 
 interface CardDetailsModalProps {
@@ -45,7 +46,7 @@ interface CardDetailsModalProps {
 }
 
 export function CardDetailsModal({ card, columnTitle, isOpen, onClose }: CardDetailsModalProps) {
-    const { updateCard, deleteCard } = useKanbanStore()
+    const { updateCard, deleteCard, addCardMember, removeCardMember, boards, activeBoardId } = useKanbanStore()
     const [title, setTitle] = useState(card.title)
     const [description, setDescription] = useState(card.description)
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
@@ -59,9 +60,15 @@ export function CardDetailsModal({ card, columnTitle, isOpen, onClose }: CardDet
     const [tempDate, setTempDate] = useState<Date | undefined>()
     const [dueDateChecked, setDueDateChecked] = useState(false)
 
+    // Members state
+    const [isOpenMembersPopover, setIsOpenMembersPopover] = useState(false)
+
     // Checklist state
     const [newChecklistItem, setNewChecklistItem] = useState("")
     const [showChecklist, setShowChecklist] = useState(false)
+
+    const activeBoard = boards.find(b => b.id === activeBoardId)
+    const boardMembers = activeBoard?.members || []
 
     // Sync state with props
     useEffect(() => {
@@ -73,14 +80,7 @@ export function CardDetailsModal({ card, columnTitle, isOpen, onClose }: CardDet
         }
     }, [isOpen, card])
 
-    // Reset temp state when popover opens
-    useEffect(() => {
-        if (isOpenDatePopover) {
-            const currentDate = card.due_date ? new Date(card.due_date) : new Date()
-            setTempDate(currentDate)
-            setDueDateChecked(!!card.due_date)
-        }
-    }, [isOpenDatePopover, card.due_date])
+    // ... (rest of effects)
 
     const handleSave = () => {
         updateCard(card.id, { title, description })
@@ -97,20 +97,6 @@ export function CardDetailsModal({ card, columnTitle, isOpen, onClose }: CardDet
         onClose()
     }
 
-    // Checklist Logic
-    const addChecklistItem = () => {
-        if (!newChecklistItem.trim()) return
-        const newItem = {
-            id: `item-${Date.now()}`,
-            text: newChecklistItem,
-            completed: false
-        }
-        updateCard(card.id, {
-            checklist: [...(card.checklist || []), newItem]
-        })
-        setNewChecklistItem("")
-    }
-
     const toggleChecklistItem = (itemId: string) => {
         const newChecklist = card.checklist.map(item =>
             item.id === itemId ? { ...item, completed: !item.completed } : item
@@ -118,17 +104,39 @@ export function CardDetailsModal({ card, columnTitle, isOpen, onClose }: CardDet
         updateCard(card.id, { checklist: newChecklist })
     }
 
-    const removeChecklistItem = (itemId: string) => {
+    const addChecklistItem = () => {
+        if (!newChecklistItem.trim()) return
+        const newItem = {
+            id: Math.random().toString(36).substring(7),
+            text: newChecklistItem,
+            completed: false
+        }
+        updateCard(card.id, { checklist: [...(card.checklist || []), newItem] })
+        setNewChecklistItem("")
+    }
+
+    const deleteChecklistItem = (itemId: string) => {
         const newChecklist = card.checklist.filter(item => item.id !== itemId)
         updateCard(card.id, { checklist: newChecklist })
     }
 
-    // Color Logic
-    const setCardColor = (color: string) => {
-        updateCard(card.id, { color })
-    }
+    // Color logic
+    const colors = [
+        { name: 'None', class: 'bg-gradient-to-br from-primary/20 via-primary/5 to-transparent' },
+        { name: 'Red', class: 'bg-red-500/40' },
+        { name: 'Orange', class: 'bg-orange-500/40' },
+        { name: 'Amber', class: 'bg-amber-500/40' },
+        { name: 'Emerald', class: 'bg-emerald-500/40' },
+        { name: 'Blue', class: 'bg-blue-500/40' },
+        { name: 'Violet', class: 'bg-violet-500/40' },
+        { name: 'Purple', class: 'bg-purple-500/40' },
+        { name: 'Pink', class: 'bg-pink-500/40' },
+        { name: 'Slate', class: 'bg-slate-500/40' },
+    ]
 
-    // Date Logic
+    const updateCardColor = (colorClass: string) => {
+        updateCard(card.id, { color: colorClass })
+    }
     const handleDateSelect = (newDate: Date | undefined) => {
         if (newDate) {
             const current = tempDate || new Date()
@@ -166,8 +174,15 @@ export function CardDetailsModal({ card, columnTitle, isOpen, onClose }: CardDet
         setIsOpenDatePopover(false)
     }
 
-    const activeBoard = useKanbanStore(state => state.boards.find(b => b.id === state.activeBoardId))
-    const priorities = activeBoard?.priorities || []
+
+    const toggleMember = (memberId: string) => {
+        const isAssigned = card.members?.some(m => m.id === memberId)
+        if (isAssigned) {
+            removeCardMember(card.id, memberId)
+        } else {
+            addCardMember(card.id, memberId)
+        }
+    }
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -177,6 +192,7 @@ export function CardDetailsModal({ card, columnTitle, isOpen, onClose }: CardDet
                     "h-40 relative transition-colors duration-500",
                     card.color || "bg-gradient-to-br from-primary/20 via-primary/5 to-transparent"
                 )}>
+                    {/* ... (keep existing header) */}
                     <div className="absolute inset-0 bg-gradient-to-t from-card/80 to-transparent" />
                     <div className="absolute top-4 right-4 flex gap-2 z-10">
                         <Button
@@ -209,49 +225,69 @@ export function CardDetailsModal({ card, columnTitle, isOpen, onClose }: CardDet
                             </div>
                         </div>
 
-                        {/* Due Date Display */}
-                        {date && (
-                            <div className="space-y-4 animate-in fade-in slide-in-from-left-2 duration-300">
-                                <div className="flex items-center gap-2.5 text-sm font-bold text-foreground/90 uppercase tracking-wider">
-                                    <Clock className="w-4 h-4 text-primary" />
-                                    <h3>{t('board.dueDate')}</h3>
+                        {/* MEMBERS DISPLAY & DATE DISPLAY ROW */}
+                        <div className="flex flex-wrap gap-6">
+                            {/* Assigned Members */}
+                            {card.members && card.members.length > 0 && (
+                                <div className="space-y-2 animate-in fade-in slide-in-from-left-2 duration-300">
+                                    <h3 className="text-[11px] font-bold text-muted-foreground/70 uppercase tracking-wider">{t('board.members')}</h3>
+                                    <div className="flex flex-wrap gap-2">
+                                        {card.members.map(member => (
+                                            <div key={member.id} className="group relative">
+                                                <Avatar className="h-8 w-8 cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all">
+                                                    <AvatarFallback className="text-[10px] font-black bg-primary/20 text-primary">
+                                                        {member.name?.[0]?.toUpperCase() || 'U'}
+                                                    </AvatarFallback>
+                                                </Avatar>
+                                                <div className="absolute opacity-0 group-hover:opacity-100 transition-opacity bg-popover text-popover-foreground text-xs px-2 py-1 rounded-md -bottom-8 left-1/2 -translate-x-1/2 whitespace-nowrap shadow-md pointer-events-none z-50">
+                                                    {member.name}
+                                                </div>
+                                            </div>
+                                        ))}
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-8 w-8 rounded-full bg-secondary/50 hover:bg-secondary text-muted-foreground"
+                                            onClick={() => setIsOpenMembersPopover(true)}
+                                        >
+                                            <Plus className="h-4 w-4" />
+                                        </Button>
+                                    </div>
                                 </div>
-                                <div className="flex items-center gap-3">
-                                    <Button
-                                        variant="outline"
-                                        className="h-9 justify-start text-left font-normal bg-secondary/20 hover:bg-secondary/40 border-transparent hover:border-primary/20"
-                                    >
-                                        <CalendarIcon className="mr-2 h-4 w-4 text-primary" />
-                                        {format(date, "PPP")} at {format(date, "p")}
-                                    </Button>
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-9 w-9 text-muted-foreground hover:text-destructive"
-                                        onClick={() => handleDateSelect(undefined)}
-                                    >
-                                        <XIcon className="w-4 h-4" />
-                                    </Button>
+                            )}
+
+                            {/* Due Date Display */}
+                            {date && (
+                                <div className="space-y-2 animate-in fade-in slide-in-from-left-2 duration-300">
+                                    <h3 className="text-[11px] font-bold text-muted-foreground/70 uppercase tracking-wider">{t('board.dueDate')}</h3>
+                                    <div className="flex items-center gap-2">
+                                        <Button
+                                            variant="outline"
+                                            className="h-9 justify-start text-left font-normal bg-secondary/20 hover:bg-secondary/40 border-transparent hover:border-primary/20"
+                                            onClick={() => setIsOpenDatePopover(true)}
+                                        >
+                                            <CalendarIcon className="mr-2 h-4 w-4 text-primary" />
+                                            {format(date, "PPP")} at {format(date, "p")}
+                                        </Button>
+                                    </div>
                                 </div>
-                            </div>
-                        )}
+                            )}
+                        </div>
 
                         {/* Color Picker */}
-                        <div className="space-y-4">
-                            <div className="flex items-center gap-2.5 text-sm font-bold text-foreground/90 uppercase tracking-wider">
-                                <Tag className="w-4 h-4 text-primary" />
-                                <h3>{t('board.cardColor')}</h3>
-                            </div>
+                        <div className="space-y-3">
+                            <h3 className="text-[11px] font-bold text-muted-foreground/70 uppercase tracking-wider">{t('board.cardColor')}</h3>
                             <div className="flex flex-wrap gap-2">
-                                {['', 'bg-red-500/30', 'bg-orange-500/30', 'bg-amber-500/30', 'bg-emerald-500/30', 'bg-blue-500/30', 'bg-violet-500/30', 'bg-pink-500/30'].map(color => (
+                                {colors.map((c) => (
                                     <button
-                                        key={color}
-                                        onClick={() => setCardColor(color)}
+                                        key={c.name}
+                                        onClick={() => updateCardColor(c.class)}
                                         className={cn(
-                                            "w-9 h-9 rounded-xl border-2 border-transparent transition-all hover:scale-110 hover:rotate-3 shadow-sm",
-                                            color || "bg-secondary",
-                                            card.color === color ? "ring-2 ring-primary ring-offset-4 ring-offset-background border-primary" : "hover:border-primary/30"
+                                            "w-8 h-8 rounded-lg border-2 transition-all hover:scale-110",
+                                            c.class,
+                                            card.color === c.class ? "border-primary shadow-lg ring-2 ring-primary/20" : "border-transparent"
                                         )}
+                                        title={c.name}
                                     />
                                 ))}
                             </div>
@@ -259,102 +295,142 @@ export function CardDetailsModal({ card, columnTitle, isOpen, onClose }: CardDet
 
                         {/* Description */}
                         <div className="space-y-4">
-                            <div className="flex items-center gap-2.5 text-sm font-bold text-foreground/90 uppercase tracking-wider">
-                                <AlignLeft className="w-4 h-4 text-primary" />
-                                <h3>{t('board.description')}</h3>
+                            <div className="flex items-center gap-3">
+                                <AlignLeft className="w-5 h-5 text-primary" />
+                                <h3 className="text-lg font-bold tracking-tight">{t('board.description')}</h3>
                             </div>
                             <Textarea
                                 value={description}
                                 onChange={(e) => setDescription(e.target.value)}
                                 placeholder={t('board.descriptionPlaceholder')}
-                                className="min-h-[140px] bg-secondary/20 border-border/50 resize-none focus-visible:ring-2 focus-visible:ring-primary/20 rounded-2xl p-5 text-sm leading-relaxed transition-all"
+                                className="min-h-[120px] bg-secondary/20 border-border/40 focus-visible:ring-primary/20 rounded-2xl p-4 text-sm leading-relaxed resize-none transition-all focus:bg-secondary/30"
                             />
                         </div>
 
                         {/* Checklist */}
                         {showChecklist && (
-                            <div className="space-y-5 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                            <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
                                 <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-2.5 text-sm font-bold text-foreground/90 uppercase tracking-wider">
-                                        <CheckSquare className="w-4 h-4 text-primary" />
-                                        <h3>{t('board.checklist')}</h3>
+                                    <div className="flex items-center gap-3">
+                                        <CheckSquare className="w-5 h-5 text-primary" />
+                                        <h3 className="text-lg font-bold tracking-tight">{t('board.checklist')}</h3>
                                     </div>
-                                    {Array.isArray(card.checklist) && card.checklist.length > 0 && (
-                                        <span className="text-xs font-bold text-primary bg-primary/10 px-2 py-1 rounded-full ring-1 ring-primary/20">
-                                            {t('board.progressText', { percent: Math.round((card.checklist.filter(i => i.completed).length / card.checklist.length) * 100).toString() })}
-                                        </span>
-                                    )}
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="text-xs font-bold hover:bg-destructive/10 hover:text-destructive rounded-lg"
+                                        onClick={() => {
+                                            updateCard(card.id, { checklist: [] })
+                                            setShowChecklist(false)
+                                        }}
+                                    >
+                                        {t('common.delete')}
+                                    </Button>
                                 </div>
 
-                                <div className="space-y-3 bg-secondary/10 p-4 rounded-2xl border border-border/30">
-                                    {Array.isArray(card.checklist) && card.checklist.map(item => (
-                                        <div key={item.id} className="flex items-center gap-3.5 group animate-in fade-in slide-in-from-left-2 duration-300">
-                                            <input
-                                                type="checkbox"
-                                                checked={item.completed}
-                                                onChange={() => toggleChecklistItem(item.id)}
-                                                className="w-5 h-5 rounded-md border-border text-primary focus:ring-primary/40 cursor-pointer transition-all"
+                                <div className="space-y-1.5 ml-1">
+                                    <div className="flex items-center gap-4 mb-4">
+                                        <span className="text-[10px] font-black text-muted-foreground w-8">
+                                            {Math.round((card.checklist?.filter(i => i.completed).length / (card.checklist?.length || 1)) * 100 || 0)}%
+                                        </span>
+                                        <div className="flex-1 h-1.5 bg-secondary/50 rounded-full overflow-hidden">
+                                            <div
+                                                className="h-full bg-primary transition-all duration-500 shadow-[0_0_10px_rgba(var(--primary),0.5)]"
+                                                style={{ width: `${(card.checklist?.filter(i => i.completed).length / (card.checklist?.length || 1)) * 100 || 0}%` }}
                                             />
-                                            <span className={cn(
-                                                "text-sm flex-1 font-medium transition-all",
-                                                item.completed ? "text-muted-foreground/60 line-through" : "text-foreground/90"
-                                            )}>
-                                                {item.text}
-                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-1">
+                                        {card.checklist?.map((item) => (
+                                            <div key={item.id} className="group flex items-center gap-3 p-2 hover:bg-secondary/30 rounded-xl transition-all">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={item.completed}
+                                                    onChange={() => toggleChecklistItem(item.id)}
+                                                    className="w-4 h-4 rounded border-border text-primary focus:ring-0 cursor-pointer accent-primary"
+                                                />
+                                                <span className={cn(
+                                                    "text-sm font-medium flex-1 transition-all",
+                                                    item.completed ? "text-muted-foreground line-through opacity-70" : "text-foreground"
+                                                )}>
+                                                    {item.text}
+                                                </span>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive/10 hover:text-destructive rounded-lg"
+                                                    onClick={() => deleteChecklistItem(item.id)}
+                                                >
+                                                    <Trash2 className="h-3.5 w-3.5" />
+                                                </Button>
+                                            </div>
+                                        ))}
+
+                                        <div className="pt-2 flex gap-2">
+                                            <Input
+                                                value={newChecklistItem}
+                                                onChange={(e) => setNewChecklistItem(e.target.value)}
+                                                placeholder={t('board.addItem')}
+                                                onKeyDown={(e) => e.key === 'Enter' && addChecklistItem()}
+                                                className="h-9 text-xs bg-secondary/10 border-border/30 focus-visible:ring-primary/20 rounded-xl px-4"
+                                            />
                                             <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-all rounded-lg hover:bg-destructive/10 hover:text-destructive"
-                                                onClick={() => removeChecklistItem(item.id)}
+                                                onClick={addChecklistItem}
+                                                size="sm"
+                                                className="h-9 px-4 rounded-xl font-bold text-xs"
                                             >
-                                                <Trash2 className="w-4 h-4" />
+                                                {t('board.add')}
                                             </Button>
                                         </div>
-                                    ))}
-                                    <div className="flex gap-3 mt-4">
-                                        <Input
-                                            value={newChecklistItem}
-                                            onChange={(e) => setNewChecklistItem(e.target.value)}
-                                            placeholder={t('board.addItem')}
-                                            className="h-10 text-sm bg-background/50 border-border/40 focus-visible:ring-primary/20 rounded-xl"
-                                            onKeyDown={(e) => e.key === 'Enter' && addChecklistItem()}
-                                        />
-                                        <Button size="sm" onClick={addChecklistItem} className="h-10 px-5 rounded-xl font-bold shadow-md hover:shadow-primary/20 transition-all">
-                                            {t('board.add')}
-                                        </Button>
                                     </div>
                                 </div>
                             </div>
                         )}
 
                         {/* Activity */}
-                        <div className="space-y-5">
-                            <div className="flex items-center gap-2.5 text-sm font-bold text-foreground/90 uppercase tracking-wider">
-                                <Activity className="w-4 h-4 text-primary" />
-                                <h3>{t('board.activity')}</h3>
+                        <div className="space-y-6 pt-4">
+                            <div className="flex items-center gap-3">
+                                <Activity className="w-5 h-5 text-primary" />
+                                <h3 className="text-lg font-bold tracking-tight">{t('board.activity')}</h3>
                             </div>
-                            <div className="space-y-5 pl-1">
-                                {Array.isArray(card.activity) && card.activity.map(log => (
-                                    <div key={log.id} className="flex gap-4 group">
-                                        <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center text-[11px] font-black text-primary shrink-0 border border-primary/20 shadow-sm group-hover:scale-110 transition-all">
-                                            SY
+
+                            <div className="space-y-6 ml-1 min-h-[100px]">
+                                {card.activity && card.activity.length > 0 ? (
+                                    card.activity.map((item) => (
+                                        <div key={item.id} className="flex gap-4 group">
+                                            <Avatar className="h-8 w-8 ring-2 ring-background border-2 border-primary/20">
+                                                <AvatarFallback className="text-[10px] font-black bg-primary/10 text-primary">
+                                                    {item.user?.name?.[0] || 'S'}
+                                                </AvatarFallback>
+                                            </Avatar>
+                                            <div className="flex-1 space-y-1">
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-xs font-bold text-foreground">
+                                                        {item.user?.name || t('board.system')}
+                                                    </span>
+                                                    <span className="text-[10px] text-muted-foreground font-medium bg-secondary/30 px-2 py-0.5 rounded-full">
+                                                        {format(new Date(item.timestamp), "MMM d, HH:mm")}
+                                                    </span>
+                                                </div>
+                                                <p className="text-sm text-muted-foreground/90 leading-relaxed">
+                                                    {item.type === 'move'
+                                                        ? t('board.movedCard', { from: item.params?.from || '', to: item.params?.to || '' })
+                                                        : item.type === 'create'
+                                                            ? t('board.createdCard')
+                                                            : item.text}
+                                                </p>
+                                            </div>
                                         </div>
-                                        <div className="space-y-1.5 pt-0.5">
-                                            <p className="text-sm">
-                                                <span className="font-bold text-foreground/90">{t('board.system')}</span> <span className="text-muted-foreground">{t(log.text, log.params)}</span>
-                                            </p>
-                                            <p className="text-[10px] text-muted-foreground/60 font-medium">
-                                                {new Date(log.timestamp).toLocaleString()}
-                                            </p>
-                                        </div>
+                                    ))
+                                ) : (
+                                    <div className="flex flex-col items-center justify-center py-8 text-center space-y-2 opacity-50">
+                                        <Activity className="w-8 h-8 text-muted-foreground/30" />
+                                        <p className="text-xs font-medium text-muted-foreground">{t('board.noActivity')}</p>
                                     </div>
-                                ))}
-                                {(!card.activity || card.activity.length === 0) && (
-                                    <p className="text-sm text-muted-foreground italic pl-2 border-l-2 border-muted py-1">{t('board.noActivity')}</p>
                                 )}
                             </div>
                         </div>
-
                     </div>
 
                     {/* Sidebar Actions */}
@@ -363,7 +439,58 @@ export function CardDetailsModal({ card, columnTitle, isOpen, onClose }: CardDet
                         <div className="space-y-3">
                             <h4 className="text-[11px] font-black text-muted-foreground/70 uppercase tracking-[0.2em] ml-1">{t('board.addToCard')}</h4>
                             <div className="grid grid-cols-1 gap-2">
-                                <SidebarButton icon={User} label={t('board.members')} onClick={() => { }} />
+                                {/* MEMBERS POPOVER */}
+                                <Popover open={isOpenMembersPopover} onOpenChange={setIsOpenMembersPopover}>
+                                    <PopoverTrigger asChild>
+                                        <Button variant="secondary" className="w-full justify-start gap-3 h-10 text-[11px] font-bold uppercase tracking-wider bg-secondary/40 hover:bg-primary hover:text-primary-foreground rounded-xl border border-transparent hover:border-primary/20 transition-all shadow-sm">
+                                            <User className="w-4 h-4" />
+                                            {t('board.members')}
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-[280px] p-0 shadow-2xl rounded-2xl border-border/40 bg-card overflow-hidden" align="start" sideOffset={8}>
+                                        <div className="flex items-center justify-between px-4 py-3 border-b border-border/30 bg-muted/20">
+                                            <span className="text-xs font-bold text-foreground mx-auto">{t('board.members')}</span>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-6 w-6 rounded-full absolute right-2 hover:bg-secondary/60"
+                                                onClick={() => setIsOpenMembersPopover(false)}
+                                            >
+                                                <XIcon className="w-3 h-3 opacity-60" />
+                                            </Button>
+                                        </div>
+
+                                        <div className="p-2 space-y-1">
+                                            <Input
+                                                placeholder={t('members.searchPlaceholder')}
+                                                className="h-8 text-xs bg-secondary/20 border-border/40 rounded-lg mb-2"
+                                            />
+                                            <div className="space-y-1 max-h-[200px] overflow-y-auto">
+                                                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-2 py-1">{t('board.boardMembers')}</p>
+                                                {boardMembers.length === 0 && (
+                                                    <p className="text-xs text-muted-foreground italic px-2 py-2">{t('members.noMembers')}</p>
+                                                )}
+                                                {boardMembers.map(member => {
+                                                    const isSelected = card.members?.some(m => m.id === member.id)
+                                                    return (
+                                                        <button
+                                                            key={member.id}
+                                                            onClick={() => toggleMember(member.id)}
+                                                            className="flex items-center gap-3 w-full p-2 hover:bg-secondary/40 rounded-lg transition-colors group"
+                                                        >
+                                                            <Avatar className="h-7 w-7">
+                                                                <AvatarFallback className="text-[9px] font-bold bg-primary/10 text-primary">{member.name?.[0]}</AvatarFallback>
+                                                            </Avatar>
+                                                            <span className="text-xs font-medium text-foreground flex-1 text-left truncate">{member.name}</span>
+                                                            {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-primary" />}
+                                                        </button>
+                                                    )
+                                                })}
+                                            </div>
+                                        </div>
+                                    </PopoverContent>
+                                </Popover>
+
                                 <SidebarButton icon={CheckSquare} label={t('board.checklist')} onClick={() => setShowChecklist(true)} />
 
                                 <Popover open={isOpenDatePopover} onOpenChange={setIsOpenDatePopover}>
@@ -594,7 +721,7 @@ export function CardDetailsModal({ card, columnTitle, isOpen, onClose }: CardDet
                 title={t('board.deleteCard')}
                 description={t('board.deleteCardConfirm', { name: card.title })}
             />
-        </Dialog>
+        </Dialog >
     )
 }
 

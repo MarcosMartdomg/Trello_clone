@@ -33,6 +33,7 @@ export const translations = {
             filter: "Filtrar",
             members: "Miembros",
             automate: "Automatizar",
+            allTasksAssigned: "Todas las tareas asignadas a ti",
         },
         auth: {
             welcome: "Bienvenido de nuevo",
@@ -109,6 +110,11 @@ export const translations = {
             editLabel: "Editar Etiqueta",
             labelName: "Nombre de etiqueta",
             noLabels: "Sin etiquetas aún",
+            youHaveTasks: "Tienes {count} tareas asignadas",
+            noTasksAssigned: "No tienes tareas asignadas",
+            allCaughtUp: "¡Todo al día!",
+            noTasksAssignedDesc: "Parece que no tienes tareas asignadas en este momento.",
+            boardMembers: "Miembros del tablero",
         },
         tags: {
             low: "Baja",
@@ -174,6 +180,7 @@ export const translations = {
             filter: "Filter",
             members: "Members",
             automate: "Automate",
+            allTasksAssigned: "All tasks assigned to you",
         },
         auth: {
             welcome: "Welcome back",
@@ -250,6 +257,11 @@ export const translations = {
             editLabel: "Edit Label",
             labelName: "Label name",
             noLabels: "No labels yet",
+            youHaveTasks: "You have {count} tasks assigned",
+            noTasksAssigned: "No tasks assigned to you",
+            allCaughtUp: "All caught up!",
+            noTasksAssignedDesc: "It looks like you don't have any tasks assigned at the moment.",
+            boardMembers: "Board members",
         },
         tags: {
             low: "Low",

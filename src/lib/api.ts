@@ -26,22 +26,47 @@ export const api = {
         const { data, error } = await supabase
             .from('boards')
             .select(`
-                *,
+                id,
+                name,
+                type,
+                owner_id,
+                is_favorite,
                 board_members (
                     user_id,
                     role,
                     profiles (full_name, avatar_url)
                 ),
                 columns (
-                    *,
+                    id,
+                    title,
+                    icon,
+                    position,
                     cards (
-                        *,
-                        activities (*)
+                        id,
+                        title,
+                        description,
+                        priority,
+                        color,
+                        due_date,
+                        position,
+                        labels,
+                        checklist,
+                        activities (
+                            *,
+                            profiles (id, full_name, avatar_url)
+                        ),
+                        card_members (
+                            user_id,
+                            profiles (full_name, avatar_url)
+                        )
                     )
                 )
             `);
 
-        if (error) throw error;
+        if (error) {
+            console.error("api: fetchBoards error details:", error);
+            throw error;
+        }
         return data as any[];
     },
 
@@ -125,7 +150,23 @@ export const api = {
         if (error) throw error;
     },
 
-    // Members
+    // Card Members
+    addCardMember: async (cardId: string, userId: string) => {
+        const { error } = await supabase
+            .from('card_members')
+            .insert([{ card_id: cardId, user_id: userId }]);
+        if (error) throw error;
+    },
+
+    removeCardMember: async (cardId: string, userId: string) => {
+        const { error } = await supabase
+            .from('card_members')
+            .delete()
+            .match({ card_id: cardId, user_id: userId });
+        if (error) throw error;
+    },
+
+    // Board Members
     addBoardMember: async (boardId: string, userId: string) => {
         const { error } = await supabase
             .from('board_members')
@@ -161,5 +202,18 @@ export const api = {
 
         if (error) throw error;
         return data;
+    },
+
+    // Toggle board favorite status
+    toggleBoardFavorite: async (boardId: string, isFavorite: boolean) => {
+        const { error } = await supabase
+            .from('boards')
+            .update({ is_favorite: isFavorite })
+            .eq('id', boardId);
+
+        if (error) {
+            console.error("api: toggleBoardFavorite error:", error);
+            throw error;
+        }
     }
 };

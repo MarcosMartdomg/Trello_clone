@@ -28,12 +28,20 @@ import { useTranslation } from "@/hooks/use-translation"
 
 export function KanbanSidebar() {
     const [collapsed, setCollapsed] = useState(false)
-    const [activeNav, setActiveNav] = useState("board")
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
     const [isProfileModalOpen, setIsProfileModalOpen] = useState(false)
     const [boardToDelete, setBoardToDelete] = useState<{ id: string, name: string } | null>(null)
 
-    const { boards, activeBoardId, setActiveBoard, createBoard, deleteBoard, fetchBoards } = useKanbanStore()
+    const {
+        boards,
+        activeBoardId,
+        setActiveBoard,
+        createBoard,
+        deleteBoard,
+        fetchBoards,
+        currentView,
+        setCurrentView
+    } = useKanbanStore()
     const { user, signOut } = useAuth()
     const { t } = useTranslation()
     const userInitial = user?.email?.[0].toUpperCase() || "U"
@@ -90,10 +98,16 @@ export function KanbanSidebar() {
                     <button
                         key={item.id}
                         type="button"
-                        onClick={() => setActiveNav(item.id)}
+                        onClick={() => {
+                            if (item.id === "tasks") {
+                                setCurrentView("my-tasks")
+                            } else if (item.id === "board") {
+                                setCurrentView("boards-list")
+                            }
+                        }}
                         className={cn(
                             "flex items-center gap-3 w-full rounded-lg px-3 py-2.5 text-sm transition-all duration-200",
-                            activeNav === item.id
+                            (item.id === "tasks" && currentView === "my-tasks") || (item.id === "board" && currentView === "boards-list")
                                 ? "bg-primary/10 text-primary"
                                 : "text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-foreground"
                         )}
@@ -133,15 +147,19 @@ export function KanbanSidebar() {
                             </div>
 
                             <div className="space-y-0.5">
-                                {boards.filter(b => (b.type || 'personal') === 'personal').map((board) => (
-                                    <BoardItem
-                                        key={board.id}
-                                        board={board}
-                                        activeBoardId={activeBoardId}
-                                        setActiveBoard={setActiveBoard}
-                                        onDelete={() => setBoardToDelete({ id: board.id, name: board.name })}
-                                    />
-                                ))}
+                                {boards
+                                    .filter(b => (b.type || 'personal') === 'personal')
+                                    .sort((a, b) => (b.isFavorite ? 1 : 0) - (a.isFavorite ? 1 : 0))
+                                    .map((board) => (
+                                        <BoardItem
+                                            key={board.id}
+                                            board={board}
+                                            activeBoardId={activeBoardId}
+                                            setActiveBoard={setActiveBoard}
+                                            setCurrentView={setCurrentView}
+                                            onDelete={() => setBoardToDelete({ id: board.id, name: board.name })}
+                                        />
+                                    ))}
                                 {boards.filter(b => (b.type || 'personal') === 'personal').length === 0 && (
                                     <p className="px-3 py-2 text-xs text-muted-foreground italic">{t('sidebar.noBoards')}</p>
                                 )}
@@ -158,16 +176,20 @@ export function KanbanSidebar() {
                             </div>
 
                             <div className="space-y-0.5">
-                                {boards.filter(b => b.type === 'shared').map((board) => (
-                                    <BoardItem
-                                        key={board.id}
-                                        board={board}
-                                        activeBoardId={activeBoardId}
-                                        setActiveBoard={setActiveBoard}
-                                        onDelete={() => setBoardToDelete({ id: board.id, name: board.name })}
-                                        isShared
-                                    />
-                                ))}
+                                {boards
+                                    .filter(b => b.type === 'shared')
+                                    .sort((a, b) => (b.isFavorite ? 1 : 0) - (a.isFavorite ? 1 : 0))
+                                    .map((board) => (
+                                        <BoardItem
+                                            key={board.id}
+                                            board={board}
+                                            activeBoardId={activeBoardId}
+                                            setActiveBoard={setActiveBoard}
+                                            setCurrentView={setCurrentView}
+                                            onDelete={() => setBoardToDelete({ id: board.id, name: board.name })}
+                                            isShared
+                                        />
+                                    ))}
                                 {boards.filter(b => b.type === 'shared').length === 0 && (
                                     <p className="px-3 py-2 text-xs text-muted-foreground italic">{t('members.noMembers')}</p>
                                 )}
@@ -240,18 +262,29 @@ export function KanbanSidebar() {
     )
 }
 
-function BoardItem({ board, activeBoardId, setActiveBoard, onDelete, isShared }: {
+function BoardItem({ board, activeBoardId, setActiveBoard, setCurrentView, onDelete, isShared }: {
     board: any,
     activeBoardId: string | null,
     setActiveBoard: (id: string) => void,
+    setCurrentView: (view: 'board' | 'my-tasks') => void,
     onDelete: () => void,
     isShared?: boolean
 }) {
+    const { toggleBoardFavorite } = useKanbanStore();
+
+    const handleToggleFavorite = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        toggleBoardFavorite(board.id, !board.isFavorite);
+    };
+
     return (
         <div className="group flex items-center gap-1 pr-2">
             <button
                 type="button"
-                onClick={() => setActiveBoard(board.id)}
+                onClick={() => {
+                    setActiveBoard(board.id);
+                    setCurrentView("board");
+                }}
                 className={cn(
                     "flex-1 flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all duration-200",
                     activeBoardId === board.id
@@ -265,9 +298,18 @@ function BoardItem({ board, activeBoardId, setActiveBoard, onDelete, isShared }:
                     <Layout className="w-3.5 h-3.5 shrink-0 opacity-70" />
                 )}
                 <span className="flex-1 text-left truncate">{board.name}</span>
-                {activeBoardId === board.id && (
-                    <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
+            </button>
+            <button
+                onClick={handleToggleFavorite}
+                className={cn(
+                    "opacity-0 group-hover:opacity-100 p-1.5 rounded-md transition-all duration-200",
+                    board.isFavorite
+                        ? "opacity-100 text-amber-400 hover:text-amber-500"
+                        : "text-muted-foreground hover:text-amber-400"
                 )}
+                title={board.isFavorite ? "Quitar de favoritos" : "Añadir a favoritos"}
+            >
+                <Star className={cn("w-3 h-3", board.isFavorite && "fill-amber-400")} />
             </button>
             <button
                 onClick={(e) => {

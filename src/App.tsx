@@ -1,12 +1,16 @@
 import { KanbanSidebar } from "@/components/kanban/sidebar"
 import { BoardHeader } from "@/components/kanban/board-header"
 import { KanbanBoard } from "@/components/kanban/kanban-board"
+import { MyTasksView } from "@/components/kanban/my-tasks-view"
+import { BoardsListView } from "@/components/kanban/boards-list-view"
 import { useAuth } from "@/components/auth/auth-provider"
 import { AuthScreen } from "@/components/auth/auth-screen"
+import { useKanbanStore } from "@/lib/store"
 import { Loader2 } from "lucide-react"
 
 function App() {
     const { user, loading } = useAuth()
+    const { currentView } = useKanbanStore()
 
     if (loading) {
         return (
@@ -25,7 +29,9 @@ function App() {
             <KanbanSidebar />
             <main className="flex flex-col flex-1 overflow-hidden">
                 <BoardHeader />
-                <KanbanBoard />
+                {currentView === 'board' ? <KanbanBoard /> :
+                    currentView === 'boards-list' ? <BoardsListView /> :
+                        <MyTasksView />}
             </main>
         </div>
     )

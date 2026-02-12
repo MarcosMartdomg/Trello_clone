@@ -22,7 +22,12 @@ export interface ActivityLog {
   text: string
   params?: Record<string, string>
   type: 'move' | 'create' | 'edit' | 'addon'
-  timestamp: number
+  timestamp: string | number
+  user?: {
+    id: string
+    name: string
+    avatar?: string
+  }
 }
 
 export interface KanbanCard {
@@ -54,7 +59,9 @@ export interface Priority {
 export interface Board {
   id: string
   name: string
+  ownerId: string
   type: 'personal' | 'shared'
+  isFavorite?: boolean
   columns: KanbanColumn[]
   priorities: Priority[]
   members: Member[]
@@ -77,6 +84,7 @@ export const mockBoards: Board[] = [
   {
     id: "b1",
     name: "Product Roadmap",
+    ownerId: "mock-user",
     type: "personal",
     priorities: defaultPriorities,
     members: [],

@@ -2,23 +2,9 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { supabase } from './supabase';
-import { KanbanColumn, KanbanCard, ActivityLog, Member } from './kanban-data';
+import { KanbanColumn, KanbanCard, ActivityLog, Member, Board, Priority } from './kanban-data';
 import { api } from './api';
 
-export interface Priority {
-    id: string;
-    label: string;
-    color: string;
-}
-
-export interface Board {
-    id: string;
-    name: string;
-    type: 'personal' | 'shared';
-    columns: KanbanColumn[];
-    priorities: Priority[];
-    members: Member[];
-}
 
 interface KanbanState {
     boards: Board[];
@@ -26,8 +12,11 @@ interface KanbanState {
     searchQuery: string;
     tagFilter: string[];
     language: 'es' | 'en';
+    currentView: 'board' | 'my-tasks' | 'boards-list';
 
     // Actions
+    setCurrentView: (view: 'board' | 'my-tasks' | 'boards-list') => void;
+
     fetchBoards: (userId: string) => Promise<void>;
     createBoard: (name: string, userId: string, type?: 'personal' | 'shared') => Promise<void>;
     deleteBoard: (id: string) => Promise<void>;
@@ -35,12 +24,17 @@ interface KanbanState {
     updateBoardPriorities: (boardId: string, priorities: Priority[]) => void;
     addBoardMember: (boardId: string, userId: string) => Promise<void>;
     removeBoardMember: (boardId: string, userId: string) => Promise<void>;
+    toggleBoardFavorite: (boardId: string, isFavorite: boolean) => Promise<void>;
 
     moveCard: (activeId: string, overId: string) => Promise<void>;
     addCard: (columnId: string, card: Partial<KanbanCard>) => Promise<void>;
     updateCard: (cardId: string, updates: Partial<KanbanCard>) => Promise<void>;
     deleteCard: (cardId: string) => Promise<void>;
     addActivity: (cardId: string, text: string, type: ActivityLog['type']) => void;
+
+    // Card Members
+    addCardMember: (cardId: string, userId: string) => Promise<void>;
+    removeCardMember: (cardId: string, userId: string) => Promise<void>;
 
     addColumn: (title: string) => Promise<void>;
     updateColumn: (columnId: string, updates: Partial<KanbanColumn>) => Promise<void>;
@@ -58,6 +52,9 @@ export const useKanbanStore = create<KanbanState>()(
             searchQuery: '',
             tagFilter: [],
             language: 'es',
+            currentView: 'board',
+
+            setCurrentView: (view: 'board' | 'my-tasks' | 'boards-list') => set({ currentView: view }),
 
             fetchBoards: async (userId: string) => {
                 try {
@@ -66,7 +63,9 @@ export const useKanbanStore = create<KanbanState>()(
                     const boards: Board[] = data.map((b: any) => ({
                         id: b.id,
                         name: b.name,
+                        ownerId: b.owner_id,
                         type: b.type,
+                        isFavorite: b.is_favorite || false,
                         priorities: [
                             { id: 'low', label: 'Low', color: 'bg-blue-400' },
                             { id: 'medium', label: 'Medium', color: 'bg-amber-400' },
@@ -81,7 +80,24 @@ export const useKanbanStore = create<KanbanState>()(
                                 ...card,
                                 checklist: Array.isArray(card.checklist) ? card.checklist : [],
                                 labels: Array.isArray(card.labels) ? card.labels : [],
-                                activity: Array.isArray(card.activities) ? card.activities : []
+                                activity: Array.isArray(card.activities) ? card.activities.map((a: any) => ({
+                                    id: a.id,
+                                    text: a.text,
+                                    type: a.type,
+                                    params: a.params,
+                                    timestamp: a.timestamp,
+                                    user: a.profiles ? {
+                                        id: a.profiles.id,
+                                        name: a.profiles.full_name,
+                                        avatar: a.profiles.avatar_url
+                                    } : undefined
+                                })) : [],
+                                members: card.card_members ? card.card_members.map((cm: any) => ({
+                                    id: cm.user_id,
+                                    name: cm.profiles?.full_name || 'User',
+                                    avatar: cm.profiles?.full_name?.[0]?.toUpperCase() || 'U',
+                                    color: 'bg-primary'
+                                })) : []
                             }))
                         })),
                         members: b.board_members.map((bm: any) => ({
@@ -97,7 +113,7 @@ export const useKanbanStore = create<KanbanState>()(
                         set({ activeBoardId: boards[0].id });
                     }
                 } catch (error) {
-                    console.error("Store: Error fetching boards", error);
+                    console.error("Store: Error fetching boards", JSON.stringify(error, null, 2));
                     set({ boards: [] }); // Clear boards on error to avoid stale data
                 }
             },
@@ -154,6 +170,19 @@ export const useKanbanStore = create<KanbanState>()(
                     if (user) await get().fetchBoards(user.id);
                 } catch (error) {
                     console.error("Store: Error removing member", error);
+                }
+            },
+
+            toggleBoardFavorite: async (boardId: string, isFavorite: boolean) => {
+                try {
+                    await api.toggleBoardFavorite(boardId, isFavorite);
+                    set((state) => ({
+                        boards: state.boards.map(b =>
+                            b.id === boardId ? { ...b, isFavorite } : b
+                        )
+                    }));
+                } catch (error) {
+                    console.error("Store: Error toggling favorite", error);
                 }
             },
 
@@ -315,6 +344,26 @@ export const useKanbanStore = create<KanbanState>()(
                 }
             },
 
+            addCardMember: async (cardId: string, userId: string) => {
+                try {
+                    await api.addCardMember(cardId, userId);
+                    const user = (await supabase.auth.getUser()).data.user;
+                    if (user) await get().fetchBoards(user.id);
+                } catch (error) {
+                    console.error("Store: Error adding card member", error);
+                }
+            },
+
+            removeCardMember: async (cardId: string, userId: string) => {
+                try {
+                    await api.removeCardMember(cardId, userId);
+                    const user = (await supabase.auth.getUser()).data.user;
+                    if (user) await get().fetchBoards(user.id);
+                } catch (error) {
+                    console.error("Store: Error removing card member", error);
+                }
+            },
+
             updateColumn: async (columnId: string, updates: Partial<KanbanColumn>) => {
                 try {
                     await api.updateColumn(columnId, updates);
@@ -369,7 +418,8 @@ export const useKanbanStore = create<KanbanState>()(
             name: 'kanban-storage-vite',
             partialize: (state) => ({
                 activeBoardId: state.activeBoardId,
-                language: state.language
+                language: state.language,
+                currentView: state.currentView,
             }),
         }
     )
