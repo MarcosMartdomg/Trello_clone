@@ -3,6 +3,8 @@ import { BoardHeader } from "@/components/kanban/board-header"
 import { KanbanBoard } from "@/components/kanban/kanban-board"
 import { MyTasksView } from "@/components/kanban/my-tasks-view"
 import { BoardsListView } from "@/components/kanban/boards-list-view"
+import { CalendarView } from "@/components/kanban/calendar-view"
+import { GlobalSearch } from "@/components/kanban/global-search"
 import { useAuth } from "@/components/auth/auth-provider"
 import { AuthScreen } from "@/components/auth/auth-screen"
 import { useKanbanStore } from "@/lib/store"
@@ -31,8 +33,10 @@ function App() {
                 <BoardHeader />
                 {currentView === 'board' ? <KanbanBoard /> :
                     currentView === 'boards-list' ? <BoardsListView /> :
-                        <MyTasksView />}
+                        currentView === 'calendar' ? <CalendarView /> :
+                            <MyTasksView />}
             </main>
+            <GlobalSearch />
         </div>
     )
 }

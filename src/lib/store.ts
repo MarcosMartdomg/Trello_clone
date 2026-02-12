@@ -12,10 +12,12 @@ interface KanbanState {
     searchQuery: string;
     tagFilter: string[];
     language: 'es' | 'en';
-    currentView: 'board' | 'my-tasks' | 'boards-list';
+    currentView: 'board' | 'my-tasks' | 'boards-list' | 'calendar';
+    isSearchOpen: boolean;
 
     // Actions
-    setCurrentView: (view: 'board' | 'my-tasks' | 'boards-list') => void;
+    setCurrentView: (view: 'board' | 'my-tasks' | 'boards-list' | 'calendar') => void;
+    setSearchOpen: (isOpen: boolean) => void;
 
     fetchBoards: (userId: string) => Promise<void>;
     createBoard: (name: string, userId: string, type?: 'personal' | 'shared') => Promise<void>;
@@ -53,8 +55,10 @@ export const useKanbanStore = create<KanbanState>()(
             tagFilter: [],
             language: 'es',
             currentView: 'board',
+            isSearchOpen: false,
 
-            setCurrentView: (view: 'board' | 'my-tasks' | 'boards-list') => set({ currentView: view }),
+            setCurrentView: (view: 'board' | 'my-tasks' | 'boards-list' | 'calendar') => set({ currentView: view }),
+            setSearchOpen: (isOpen) => set({ isSearchOpen: isOpen }),
 
             fetchBoards: async (userId: string) => {
                 try {

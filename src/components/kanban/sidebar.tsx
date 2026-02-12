@@ -16,7 +16,8 @@ import {
     User,
     Layout,
     Trash2,
-    LogOut
+    LogOut,
+    Calendar as CalendarIcon
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useKanbanStore } from "@/lib/store"
@@ -56,6 +57,7 @@ export function KanbanSidebar() {
         { id: "search", label: t('sidebar.search'), icon: Search },
         { id: "board", label: t('sidebar.myBoards'), icon: LayoutDashboard },
         { id: "tasks", label: t('sidebar.myTasks'), icon: CheckSquare },
+        { id: "calendar", label: t('calendar.title'), icon: CalendarIcon },
         { id: "inbox", label: t('sidebar.inbox'), icon: Inbox, badge: 3 },
         { id: "team", label: t('sidebar.team'), icon: Users },
     ]
@@ -103,11 +105,15 @@ export function KanbanSidebar() {
                                 setCurrentView("my-tasks")
                             } else if (item.id === "board") {
                                 setCurrentView("boards-list")
+                            } else if (item.id === "calendar") {
+                                setCurrentView("calendar")
                             }
                         }}
                         className={cn(
                             "flex items-center gap-3 w-full rounded-lg px-3 py-2.5 text-sm transition-all duration-200",
-                            (item.id === "tasks" && currentView === "my-tasks") || (item.id === "board" && currentView === "boards-list")
+                            (item.id === "tasks" && currentView === "my-tasks") ||
+                                (item.id === "board" && currentView === "boards-list") ||
+                                (item.id === "calendar" && currentView === "calendar")
                                 ? "bg-primary/10 text-primary"
                                 : "text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-foreground"
                         )}

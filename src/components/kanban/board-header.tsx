@@ -1,7 +1,7 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { Filter, Users, Zap, Search, X, Sun, Moon, Globe } from "lucide-react"
+import { Filter, Users, Zap, Search, X, Sun, Moon, Globe, Calendar, ArrowUp, ArrowDown } from "lucide-react"
 import { useKanbanStore } from "@/lib/store"
 import { useTheme } from "next-themes"
 import { cn } from "@/lib/utils"
@@ -9,6 +9,8 @@ import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Button } from "@/components/ui/button"
@@ -65,31 +67,54 @@ export function BoardHeader() {
             </div>
 
             <div className="flex items-center gap-2">
-                {/* Search */}
-                <div className="relative flex items-center">
-                    <Search className="absolute left-3 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
-                    <input
-                        type="text"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder={t('header.searchPlaceholder')}
-                        className="pl-9 pr-8 py-1.5 w-64 rounded-lg bg-secondary/50 border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30 transition-all font-medium"
-                    />
-                    {searchQuery && (
-                        <button
-                            onClick={() => setSearchQuery("")}
-                            className="absolute right-2 p-1 hover:bg-accent rounded-md text-muted-foreground hover:text-foreground"
-                        >
-                            <X className="w-3 h-3" />
-                        </button>
-                    )}
-                </div>
+                {/* Search - Only show when viewing a board */}
+                {currentView === 'board' && activeBoard && (
+                    <div className="relative flex items-center">
+                        <Search className="absolute left-3 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+                        <input
+                            type="text"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            placeholder={t('header.searchPlaceholder')}
+                            className="pl-9 pr-8 py-1.5 w-64 rounded-lg bg-secondary/50 border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30 transition-all font-medium"
+                        />
+                        {searchQuery && (
+                            <button
+                                onClick={() => setSearchQuery("")}
+                                className="absolute right-2 p-1 hover:bg-accent rounded-md text-muted-foreground hover:text-foreground"
+                            >
+                                <X className="w-3 h-3" />
+                            </button>
+                        )}
+                    </div>
+                )}
 
                 {/* Filter button */}
-                <button type="button" className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-colors border border-transparent hover:border-border">
-                    <Filter className="w-3.5 h-3.5" />
-                    <span className="text-xs">{t('header.filter')}</span>
-                </button>
+                {/* Filter & Sort Dropdown */}
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <button type="button" className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-colors border border-transparent hover:border-border">
+                            <Filter className="w-3.5 h-3.5" />
+                            <span className="text-xs">{t('header.filter')}</span>
+                        </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-48">
+                        <DropdownMenuLabel>{t('filters.sortBy')}</DropdownMenuLabel>
+                        <DropdownMenuItem>
+                            <Calendar className="mr-2 h-4 w-4 text-muted-foreground" />
+                            <span>{t('filters.date')}</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem>
+                            <ArrowUp className="mr-2 h-4 w-4 text-muted-foreground" />
+                            <span>{t('filters.priority')}</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem className="text-red-500 focus:text-red-500">
+                            <X className="mr-2 h-4 w-4" />
+                            <span>{t('filters.clearFilters')}</span>
+                        </DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
 
                 {/* Members button & Avatars */}
                 {!isTasksView && activeBoard?.type === 'shared' && (
@@ -120,10 +145,7 @@ export function BoardHeader() {
                 )}
 
                 {/* Automations */}
-                <button type="button" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest bg-primary text-primary-foreground hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 active:scale-95">
-                    <Zap className="w-3.5 h-3.5" />
-                    <span className="hidden xs:inline">{t('header.automate')}</span>
-                </button>
+
 
                 <div className="h-4 w-[1px] bg-border mx-1" />
 
