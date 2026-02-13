@@ -2,7 +2,7 @@
 "use client"
 
 import { useMemo, useState, useEffect } from "react"
-import { Plus, LayoutPanelLeft } from "lucide-react"
+import { Plus, LayoutPanelLeft, ShieldAlert, Check, X, Users } from "lucide-react"
 import {
     DndContext,
     DragOverlay,
@@ -17,7 +17,6 @@ import {
     DropAnimation
 } from "@dnd-kit/core"
 import {
-    SortableContext,
     sortableKeyboardCoordinates
 } from "@dnd-kit/sortable"
 
@@ -28,10 +27,12 @@ import { TagFilters } from "./board-filters"
 import { Button } from "@/components/ui/button"
 import { CreateBoardModal } from "./create-board-modal"
 import { useTranslation } from "@/hooks/use-translation"
+import { useAuth } from "@/components/auth/auth-provider"
 import type { KanbanCard as KanbanCardType, KanbanColumn as KanbanColumnType } from "@/lib/kanban-data"
 
 export function KanbanBoard() {
-    const { boards, activeBoardId, moveCard, addColumn, searchQuery, tagFilter, createBoard } = useKanbanStore()
+    const { boards, activeBoardId, moveCard, addColumn, searchQuery, tagFilter, createBoard, acceptInvitation, declineInvitation } = useKanbanStore()
+    const { user } = useAuth()
     const [activeColumn, setActiveColumn] = useState<KanbanColumnType | null>(null)
     const [activeCard, setActiveCard] = useState<KanbanCardType | null>(null)
     const [isMounted, setIsMounted] = useState(false)
@@ -47,6 +48,16 @@ export function KanbanBoard() {
     const activeBoard = useMemo(() => {
         return boards.find(b => b.id === activeBoardId) || null
     }, [boards, activeBoardId])
+
+    const isPending = useMemo(() => {
+        if (!activeBoard || !user) return false
+        // The owner is never pending
+        if (activeBoard.ownerId === user.id) return false
+
+        // Find current user's member entry
+        const memberEntry = activeBoard.members.find(m => m.id === user.id)
+        return memberEntry?.status === 'pending'
+    }, [activeBoard, user])
 
     const sensors = useSensors(
         useSensor(PointerSensor, {
@@ -138,6 +149,48 @@ export function KanbanBoard() {
                     <Plus className="w-4 h-4" />
                     {t('board.firstBoard')}
                 </Button>
+            </div>
+        )
+    }
+
+    if (isPending) {
+        return (
+            <div className="flex-1 flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-500">
+                <div className="relative mb-8">
+                    <div className="w-24 h-24 rounded-[2rem] bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center border border-primary/20 shadow-2xl shadow-primary/10 animate-pulse">
+                        <ShieldAlert className="w-10 h-10 text-primary" />
+                    </div>
+                    <div className="absolute -bottom-2 -right-2 w-10 h-10 rounded-full bg-background border border-border flex items-center justify-center shadow-lg">
+                        <Users className="w-5 h-5 text-muted-foreground" />
+                    </div>
+                </div>
+
+                <h1 className="text-3xl font-black tracking-tight mb-3">
+                    {t('members.invitationFrom', { name: activeBoard.name })}
+                </h1>
+                <p className="text-muted-foreground max-w-md mb-10 leading-relaxed font-medium">
+                    Has sido invitado a colaborar en este tablero. Para ver las tareas y participar, primero debes aceptar la invitación.
+                </p>
+
+                <div className="flex items-center gap-4">
+                    <Button
+                        size="lg"
+                        variant="outline"
+                        className="h-12 px-8 rounded-xl font-bold border-2 hover:bg-destructive/5 hover:text-destructive hover:border-destructive/20 transition-all"
+                        onClick={() => declineInvitation(activeBoard.id, user!.id)}
+                    >
+                        <X className="w-4 h-4 mr-2" />
+                        {t('members.decline')}
+                    </Button>
+                    <Button
+                        size="lg"
+                        className="h-12 px-10 rounded-xl font-black shadow-xl shadow-primary/30 hover:scale-[1.02] active:scale-95 transition-all"
+                        onClick={() => acceptInvitation(activeBoard.id, user!.id)}
+                    >
+                        <Check className="w-4 h-4 mr-2" />
+                        {t('members.accept')}
+                    </Button>
+                </div>
             </div>
         )
     }

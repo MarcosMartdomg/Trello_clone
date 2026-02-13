@@ -170,7 +170,7 @@ export const api = {
     addBoardMember: async (boardId: string, userId: string) => {
         const { error } = await supabase
             .from('board_members')
-            .insert([{ board_id: boardId, user_id: userId }]);
+            .insert([{ board_id: boardId, user_id: userId, status: 'pending' }]);
         if (error) throw error;
     },
 
@@ -178,6 +178,26 @@ export const api = {
         const { error } = await supabase
             .from('board_members')
             .delete()
+            .match({ board_id: boardId, user_id: userId });
+        if (error) throw error;
+    },
+
+    fetchInvitations: async (userId: string) => {
+        const { data, error } = await supabase
+            .from('board_members')
+            .select('*, boards(id, name, type, owner_id)')
+            .match({ user_id: userId, status: 'pending' });
+        if (error) throw error;
+        return data;
+    },
+
+    updateInvitationStatus: async (boardId: string, userId: string, status: 'accepted' | 'declined') => {
+        if (status === 'declined') {
+            return api.removeBoardMember(boardId, userId);
+        }
+        const { error } = await supabase
+            .from('board_members')
+            .update({ status: 'accepted' })
             .match({ board_id: boardId, user_id: userId });
         if (error) throw error;
     },
@@ -214,6 +234,24 @@ export const api = {
         if (error) {
             console.error("api: toggleBoardFavorite error:", error);
             throw error;
+        }
+    },
+
+    // Notifications
+    createNotification: async (boardId: string, message: string) => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        try {
+            const { error } = await supabase.from('board_activities').insert([{
+                board_id: boardId,
+                user_id: user.id,
+                text: message,
+                type: 'system'
+            }]);
+            if (error) console.error("api: error creating notification", error);
+        } catch (e) {
+            console.warn("api: board_activities table likely missing, notification suppressed.");
         }
     }
 };

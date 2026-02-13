@@ -24,6 +24,7 @@ import { useKanbanStore } from "@/lib/store"
 import { useAuth } from "@/components/auth/auth-provider"
 import { CreateBoardModal } from "./create-board-modal"
 import { ConfirmDeleteModal } from "./confirm-delete-modal"
+import { ConfirmLeaveModal } from "./confirm-leave-modal"
 import { UserProfileModal } from "@/components/auth/user-profile-modal"
 import { useTranslation } from "@/hooks/use-translation"
 
@@ -32,6 +33,7 @@ export function KanbanSidebar() {
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
     const [isProfileModalOpen, setIsProfileModalOpen] = useState(false)
     const [boardToDelete, setBoardToDelete] = useState<{ id: string, name: string } | null>(null)
+    const [boardToLeave, setBoardToLeave] = useState<{ id: string, name: string } | null>(null)
 
     const {
         boards,
@@ -39,7 +41,10 @@ export function KanbanSidebar() {
         setActiveBoard,
         createBoard,
         deleteBoard,
+        leaveBoard,
         fetchBoards,
+        fetchInvitations,
+        invitations,
         currentView,
         setCurrentView
     } = useKanbanStore()
@@ -50,15 +55,16 @@ export function KanbanSidebar() {
     useEffect(() => {
         if (user) {
             fetchBoards(user.id)
+            fetchInvitations(user.id)
         }
-    }, [user, fetchBoards])
+    }, [user, fetchBoards, fetchInvitations])
 
     const navItems = [
         { id: "search", label: t('sidebar.search'), icon: Search },
         { id: "board", label: t('sidebar.myBoards'), icon: LayoutDashboard },
         { id: "tasks", label: t('sidebar.myTasks'), icon: CheckSquare },
         { id: "calendar", label: t('calendar.title'), icon: CalendarIcon },
-        { id: "inbox", label: t('sidebar.inbox'), icon: Inbox, badge: 3 },
+        { id: "inbox", label: t('sidebar.inbox'), icon: Inbox, badge: invitations.length > 0 ? invitations.length : undefined },
         { id: "team", label: t('sidebar.team'), icon: Users },
     ]
 
@@ -72,6 +78,13 @@ export function KanbanSidebar() {
         if (boardToDelete) {
             deleteBoard(boardToDelete.id)
             setBoardToDelete(null)
+        }
+    }
+
+    const handleLeaveBoard = () => {
+        if (boardToLeave) {
+            leaveBoard(boardToLeave.id)
+            setBoardToLeave(null)
         }
     }
 
@@ -107,6 +120,8 @@ export function KanbanSidebar() {
                                 setCurrentView("boards-list")
                             } else if (item.id === "calendar") {
                                 setCurrentView("calendar")
+                            } else if (item.id === "inbox") {
+                                setCurrentView("inbox")
                             }
                         }}
                         className={cn(
@@ -164,6 +179,8 @@ export function KanbanSidebar() {
                                             setActiveBoard={setActiveBoard}
                                             setCurrentView={setCurrentView}
                                             onDelete={() => setBoardToDelete({ id: board.id, name: board.name })}
+                                            onLeave={() => { }} // Not used for personal
+                                            isOwner={board.ownerId === user?.id}
                                         />
                                     ))}
                                 {boards.filter(b => (b.type || 'personal') === 'personal').length === 0 && (
@@ -193,7 +210,9 @@ export function KanbanSidebar() {
                                             setActiveBoard={setActiveBoard}
                                             setCurrentView={setCurrentView}
                                             onDelete={() => setBoardToDelete({ id: board.id, name: board.name })}
+                                            onLeave={() => setBoardToLeave({ id: board.id, name: board.name })}
                                             isShared
+                                            isOwner={board.ownerId === user?.id}
                                         />
                                     ))}
                                 {boards.filter(b => b.type === 'shared').length === 0 && (
@@ -260,6 +279,14 @@ export function KanbanSidebar() {
                 description={t('board.deleteConfirm', { name: boardToDelete?.name || '' }) + ' ' + t('board.deleteWarning')}
             />
 
+            <ConfirmLeaveModal
+                isOpen={!!boardToLeave}
+                onClose={() => setBoardToLeave(null)}
+                onConfirm={handleLeaveBoard}
+                title={t('board.leaveTitle')}
+                description={t('board.leaveConfirm', { name: boardToLeave?.name || '' }) + ' ' + t('board.leaveWarning')}
+            />
+
             <UserProfileModal
                 open={isProfileModalOpen}
                 onOpenChange={setIsProfileModalOpen}
@@ -268,14 +295,17 @@ export function KanbanSidebar() {
     )
 }
 
-function BoardItem({ board, activeBoardId, setActiveBoard, setCurrentView, onDelete, isShared }: {
+function BoardItem({ board, activeBoardId, setActiveBoard, setCurrentView, onDelete, onLeave, isShared, isOwner }: {
     board: any,
     activeBoardId: string | null,
     setActiveBoard: (id: string) => void,
     setCurrentView: (view: 'board' | 'my-tasks') => void,
     onDelete: () => void,
-    isShared?: boolean
+    onLeave: () => void,
+    isShared?: boolean,
+    isOwner?: boolean
 }) {
+    const { t } = useTranslation();
     const { toggleBoardFavorite } = useKanbanStore();
 
     const handleToggleFavorite = (e: React.MouseEvent) => {
@@ -320,11 +350,16 @@ function BoardItem({ board, activeBoardId, setActiveBoard, setCurrentView, onDel
             <button
                 onClick={(e) => {
                     e.stopPropagation();
-                    onDelete();
+                    if (isOwner || !isShared) {
+                        onDelete();
+                    } else {
+                        onLeave();
+                    }
                 }}
                 className="opacity-0 group-hover:opacity-100 p-1.5 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-all duration-200"
+                title={(isOwner || !isShared) ? t('common.delete') : t('board.leaveTitle')}
             >
-                <Trash2 className="w-3 h-3" />
+                {(isOwner || !isShared) ? <Trash2 className="w-3 h-3" /> : <LogOut className="w-3 h-3" />}
             </button>
         </div>
     );

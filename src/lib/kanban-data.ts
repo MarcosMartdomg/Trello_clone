@@ -3,6 +3,7 @@ export interface Member {
   name: string
   avatar: string
   color: string
+  status?: 'pending' | 'accepted'
 }
 
 export interface Label {

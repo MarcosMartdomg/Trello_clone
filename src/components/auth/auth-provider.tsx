@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useEffect, useState } from "react"
 import { type User, type Session } from "@supabase/supabase-js"
 import { supabase } from "@/lib/supabase"
+import { useKanbanStore } from "@/lib/store"
 
 interface AuthContextType {
     user: User | null
@@ -37,7 +38,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }, [])
 
     const signOut = async () => {
-        await supabase.auth.signOut()
+        const { resetUserSession } = useKanbanStore.getState();
+        resetUserSession();
+        await supabase.auth.signOut();
     }
 
     return (

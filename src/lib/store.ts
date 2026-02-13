@@ -12,21 +12,30 @@ interface KanbanState {
     searchQuery: string;
     tagFilter: string[];
     language: 'es' | 'en';
-    currentView: 'board' | 'my-tasks' | 'boards-list' | 'calendar';
+    currentView: 'board' | 'my-tasks' | 'boards-list' | 'calendar' | 'inbox';
     isSearchOpen: boolean;
+    invitations: any[];
+    activeNotifications: any[];
 
     // Actions
-    setCurrentView: (view: 'board' | 'my-tasks' | 'boards-list' | 'calendar') => void;
+    setCurrentView: (view: 'board' | 'my-tasks' | 'boards-list' | 'calendar' | 'inbox') => void;
     setSearchOpen: (isOpen: boolean) => void;
+    resetUserSession: () => void;
 
     fetchBoards: (userId: string) => Promise<void>;
     createBoard: (name: string, userId: string, type?: 'personal' | 'shared') => Promise<void>;
     deleteBoard: (id: string) => Promise<void>;
+    leaveBoard: (id: string) => Promise<void>;
     setActiveBoard: (id: string) => void;
+    fetchInvitations: (userId: string) => Promise<void>;
+    acceptInvitation: (boardId: string, userId: string) => Promise<void>;
+    declineInvitation: (boardId: string, userId: string) => Promise<void>;
     updateBoardPriorities: (boardId: string, priorities: Priority[]) => void;
     addBoardMember: (boardId: string, userId: string) => Promise<void>;
     removeBoardMember: (boardId: string, userId: string) => Promise<void>;
     toggleBoardFavorite: (boardId: string, isFavorite: boolean) => Promise<void>;
+    addNotification: (notification: any) => void;
+    removeNotification: (id: string) => void;
 
     moveCard: (activeId: string, overId: string) => Promise<void>;
     addCard: (columnId: string, card: Partial<KanbanCard>) => Promise<void>;
@@ -56,14 +65,27 @@ export const useKanbanStore = create<KanbanState>()(
             language: 'es',
             currentView: 'board',
             isSearchOpen: false,
+            invitations: [],
+            activeNotifications: [],
 
-            setCurrentView: (view: 'board' | 'my-tasks' | 'boards-list' | 'calendar') => set({ currentView: view }),
-            setSearchOpen: (isOpen) => set({ isSearchOpen: isOpen }),
+            setCurrentView: (view: 'board' | 'my-tasks' | 'boards-list' | 'calendar' | 'inbox') => set({ currentView: view }),
+            setSearchOpen: (isOpen: boolean) => set({ isSearchOpen: isOpen }),
+
+            resetUserSession: () => set({
+                boards: [],
+                activeBoardId: null,
+                invitations: [],
+                activeNotifications: [],
+                currentView: 'boards-list'
+            }),
 
             fetchBoards: async (userId: string) => {
                 try {
                     const data = await api.fetchBoards(userId);
-                    // Map Supabase data to our Board interface
+                    // Filter boards to only show those that are accepted by the user
+                    // Note: Supabase fetch needs to return board_members status or we assume accepted for now
+                    // if board_members status isn't joined in fetchBoards, we might need a separate check.
+                    // For now, let's assume we want to filter boards where the user is an 'accepted' member.
                     const boards: Board[] = data.map((b: any) => ({
                         id: b.id,
                         name: b.name,
@@ -108,7 +130,8 @@ export const useKanbanStore = create<KanbanState>()(
                             id: bm.user_id,
                             name: bm.profiles?.full_name || 'Member',
                             avatar: bm.profiles?.full_name?.[0]?.toUpperCase() || 'U',
-                            color: 'bg-primary'
+                            color: 'bg-primary',
+                            status: bm.status
                         }))
                     }));
 
@@ -148,7 +171,83 @@ export const useKanbanStore = create<KanbanState>()(
                 }
             },
 
+            leaveBoard: async (id: string) => {
+                try {
+                    const user = (await supabase.auth.getUser()).data.user;
+                    if (!user) return;
+
+                    // Notify others before leaving if possible
+                    await api.createNotification(id, `notificationMemberLeft`);
+
+                    await api.removeBoardMember(id, user.id);
+
+                    set((state) => {
+                        const newBoards = state.boards.filter(b => b.id !== id);
+                        return {
+                            boards: newBoards,
+                            activeBoardId: state.activeBoardId === id
+                                ? (newBoards.length > 0 ? newBoards[0].id : null)
+                                : state.activeBoardId
+                        };
+                    });
+                } catch (error) {
+                    console.error("Store: Error leaving board", error);
+                }
+            },
+
+            fetchInvitations: async (userId: string) => {
+                try {
+                    const nextInvitations = await api.fetchInvitations(userId);
+                    const currentInvitations = get().invitations;
+
+                    // Detect new invitations to show toasts
+                    nextInvitations.forEach((invite: any) => {
+                        const isNew = !currentInvitations.find((c: any) => c.id === invite.id);
+                        if (isNew) {
+                            get().addNotification({
+                                id: `invite-${invite.id}`,
+                                type: 'invitation',
+                                boardName: invite.boards?.name,
+                                boardId: invite.board_id,
+                                userId: userId
+                            });
+                        }
+                    });
+
+                    set({ invitations: nextInvitations });
+                } catch (error) {
+                    console.error("Store: Error fetching invitations", error);
+                }
+            },
+
+            acceptInvitation: async (boardId: string, userId: string) => {
+                try {
+                    await api.updateInvitationStatus(boardId, userId, 'accepted');
+                    await get().fetchInvitations(userId);
+                    await get().fetchBoards(userId);
+                } catch (error) {
+                    console.error("Store: Error accepting invitation", error);
+                }
+            },
+
+            declineInvitation: async (boardId: string, userId: string) => {
+                try {
+                    await api.updateInvitationStatus(boardId, userId, 'declined');
+                    await get().fetchInvitations(userId);
+                } catch (error) {
+                    console.error("Store: Error declining invitation", error);
+                }
+            },
+
             setActiveBoard: (id: string) => set({ activeBoardId: id }),
+
+            addNotification: (notification: any) => set((state) => ({
+                activeNotifications: [...state.activeNotifications, { ...notification, id: notification.id || Math.random().toString() }]
+            })),
+
+            removeNotification: (id: string) => set((state) => ({
+                activeNotifications: state.activeNotifications.filter(n => n.id !== id)
+            })),
 
             updateBoardPriorities: (boardId: string, priorities: Priority[]) => {
                 set((state) => ({
