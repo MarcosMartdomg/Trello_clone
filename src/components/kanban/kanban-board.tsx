@@ -56,7 +56,10 @@ export function KanbanBoard() {
 
         // Find current user's member entry
         const memberEntry = activeBoard.members.find(m => m.id === user.id)
-        return memberEntry?.status === 'pending'
+
+        // Block access if member entry is missing OR status is not 'accepted'
+        // This covers 'pending' and any other non-accepted state
+        return memberEntry?.status !== 'accepted'
     }, [activeBoard, user])
 
     const sensors = useSensors(

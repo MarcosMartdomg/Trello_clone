@@ -35,8 +35,23 @@ export function BoardHeader() {
 
     const isTasksView = currentView === 'my-tasks'
     const isBoardsListView = currentView === 'boards-list'
+    const isInboxView = currentView === 'inbox'
+    const isCalendarView = currentView === 'calendar'
 
-    if (!activeBoard && !isTasksView && !isBoardsListView) return null
+    // We used to return null here, but now we want to show the header for tools even if no board title
+    // However, if we are in a view that has its own header (like inbox/calendar), we might want to hide the *title* part but keep the header bar?
+    // The user request is: "Where it says hello [board name]... should not appear"
+    // So we keep the header bar, but render nothing in the left part for these views.
+
+    // If no active board and not in a global view, we might still want to show the header for theme toggles etc?
+    // For now, let's stick to existing logic: if nothing to show, return null? 
+    // Wait, the user wants to REMOVE the "Hola" part. The header bar itself (with theme toggles) should stay.
+    // So we should remove this early return or adapt it.
+
+    // Actually, existing code was: if (!activeBoard && !isTasksView && !isBoardsListView) return null
+    // This meant if we are in Inbox/Calendar and have no active board, no header.
+    // But if we HAVE an active board (e.g. "Hola"), it shows "Hola" even in Inbox.
+    // So we just need to prevent rendering the "activeBoard" block if isInbox or isCalendar.
 
     return (
         <header className="flex items-center justify-between px-6 h-14 border-b border-border bg-background/80 backdrop-blur-sm shrink-0 z-10 transition-colors duration-300 ease-in-out">
@@ -57,6 +72,24 @@ export function BoardHeader() {
                         </h1>
                         <p className="text-xs text-muted-foreground lowercase">
                             {t('common.manageYourWorkspaces')}
+                        </p>
+                    </div>
+                ) : isInboxView ? (
+                    <div>
+                        <h1 className="text-base font-semibold text-foreground tracking-tight">
+                            {t('sidebar.inbox')}
+                        </h1>
+                        <p className="text-xs text-muted-foreground lowercase">
+                            {t('sidebar.inboxDescription') || "Notificaciones e invitaciones"}
+                        </p>
+                    </div>
+                ) : isCalendarView ? (
+                    <div>
+                        <h1 className="text-base font-semibold text-foreground tracking-tight">
+                            {t('calendar.title')}
+                        </h1>
+                        <p className="text-xs text-muted-foreground lowercase">
+                            {t('calendar.description') || "Gestiona tu agenda y entregas"}
                         </p>
                     </div>
                 ) : activeBoard ? (

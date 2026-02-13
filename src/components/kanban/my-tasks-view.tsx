@@ -53,11 +53,10 @@ export function MyTasksView() {
     const { priorityFilter, tagFilter } = useKanbanStore()
 
     const tasksPerBoard = boards.map(board => {
-        const isOwnerOfPersonalBoard = board.type === 'personal' && board.ownerId === user.id;
-
         const filteredTasks = board.columns.flatMap(col =>
             col.cards.filter(card => {
-                const isAssigned = isOwnerOfPersonalBoard || card.members?.some(m => m.id === user.id);
+                // Constraint: Only show cards where the user is an explicit member.
+                const isAssigned = card.members?.some(m => m.id === user.id);
                 const matchesPriority = priorityFilter.length === 0 || (card.priority && priorityFilter.includes(card.priority));
                 const matchesTags = tagFilter.length === 0 || card.labels?.some(l => tagFilter.includes(l.text));
 
@@ -181,7 +180,9 @@ export function MyTasksView() {
                                                 {task.due_date && (
                                                     <div className={cn(
                                                         "flex items-center gap-1.5 text-xs font-bold",
-                                                        new Date(task.due_date) < new Date() ? "text-red-500" : ""
+                                                        task.checklist && task.checklist.length > 0 && task.checklist.every(i => i.completed)
+                                                            ? "text-emerald-500"
+                                                            : new Date(task.due_date) < new Date() ? "text-red-500" : ""
                                                     )}>
                                                         <Clock className="w-3.5 h-3.5" />
                                                         {format(new Date(task.due_date), "MMM d")}

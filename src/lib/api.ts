@@ -23,52 +23,87 @@ export const api = {
     // Boards
     fetchBoards: async (userId: string) => {
         await api.ensureProfile(userId);
-        const { data, error } = await supabase
-            .from('boards')
-            .select(`
+
+        const boardSelect = `
+            id,
+            name,
+            type,
+            owner_id,
+            is_favorite,
+            board_members (
+                user_id,
+                role,
+                status,
+                profiles (full_name, avatar_url)
+            ),
+            columns (
                 id,
-                name,
-                type,
-                owner_id,
-                is_favorite,
-                board_members (
-                    user_id,
-                    role,
-                    status,
-                    profiles (full_name, avatar_url)
-                ),
-                columns (
+                title,
+                icon,
+                position,
+                cards (
                     id,
                     title,
-                    icon,
+                    description,
+                    priority,
+                    color,
+                    due_date,
                     position,
-                    cards (
-                        id,
-                        title,
-                        description,
-                        priority,
-                        color,
-                        due_date,
-                        position,
-                        labels,
-                        checklist,
-                        activities (
-                            *,
-                            profiles (id, full_name, avatar_url)
-                        ),
-                        card_members (
-                            user_id,
-                            profiles (full_name, avatar_url)
-                        )
+                    labels,
+                    checklist,
+                    activities (
+                        *,
+                        profiles (id, full_name, avatar_url)
+                    ),
+                    card_members (
+                        user_id,
+                        profiles (full_name, avatar_url)
                     )
                 )
-            `);
+            )
+        `;
 
-        if (error) {
-            console.error("api: fetchBoards error details:", error);
-            throw error;
+        // Query 1: Boards the user owns (RLS handles this)
+        const { data: ownedBoards, error: ownedError } = await supabase
+            .from('boards')
+            .select(boardSelect)
+            .eq('owner_id', userId);
+
+        if (ownedError) {
+            console.error("api: fetchBoards owned error:", ownedError);
+            throw ownedError;
         }
-        return data as any[];
+
+        // Query 2: Boards where user is an accepted member (join via board_members)
+        const { data: membershipData, error: memberError } = await supabase
+            .from('board_members')
+            .select('board_id')
+            .eq('user_id', userId)
+            .eq('status', 'accepted');
+
+        let sharedBoards: any[] = [];
+        if (!memberError && membershipData && membershipData.length > 0) {
+            const boardIds = membershipData.map((m: any) => m.board_id);
+            const { data: shared, error: sharedError } = await supabase
+                .from('boards')
+                .select(boardSelect)
+                .in('id', boardIds);
+
+            if (sharedError) {
+                console.error("api: fetchBoards shared error:", sharedError);
+            } else {
+                sharedBoards = shared || [];
+            }
+        }
+
+        // Merge and deduplicate
+        const ownedIds = new Set((ownedBoards || []).map((b: any) => b.id));
+        const merged = [
+            ...(ownedBoards || []),
+            ...sharedBoards.filter((b: any) => !ownedIds.has(b.id))
+        ];
+
+        return merged as any[];
     },
 
     createBoard: async (name: string, userId: string, type: 'personal' | 'shared') => {
@@ -102,23 +137,29 @@ export const api = {
             .from('boards')
             .update({ owner_id: newOwnerId })
             .eq('id', boardId);
-
         if (error) throw error;
+    },
 
-        // Also update the new owner's status in board_members to 'accepted' and role to 'admin' if needed,
-        // though typically owner isn't in board_members or has a special role.
-        // For this simple clone, we just change the owner_id on the board table.
-        // We should ensure the new owner is a member.
+    updateBoard: async (id: string, updates: any) => {
+        const { error } = await supabase.from('boards').update(updates).eq('id', id);
+        if (error) throw error;
+    },
+
+    toggleBoardFavorite: async (boardId: string, isFavorite: boolean) => {
+        const { error } = await supabase
+            .from('boards')
+            .update({ is_favorite: isFavorite })
+            .eq('id', boardId);
+        if (error) throw error;
     },
 
     // Columns
     createColumn: async (boardId: string, title: string, position: number) => {
         const { data, error } = await supabase
             .from('columns')
-            .insert([{ board_id: boardId, title, position }])
+            .insert([{ board_id: boardId, title, position, icon: 'circle' }])
             .select()
             .single();
-
         if (error) throw error;
         return data;
     },
@@ -134,23 +175,20 @@ export const api = {
     },
 
     // Cards
-    createCard: async (columnId: string, card: Partial<KanbanCard>, position: number) => {
+    createCard: async (columnId: string, title: string, position: number) => {
         const { data, error } = await supabase
             .from('cards')
             .insert([{
                 column_id: columnId,
-                title: card.title,
-                description: card.description,
-                priority: card.priority,
-                color: card.color,
+                title,
                 position,
-                labels: card.labels || [],
-                checklist: card.checklist || [],
-                due_date: card.due_date
+                description: '',
+                priority: 'medium',
+                labels: [],
+                checklist: []
             }])
             .select()
             .single();
-
         if (error) throw error;
         return data;
     },
@@ -162,6 +200,14 @@ export const api = {
 
     deleteCard: async (id: string) => {
         const { error } = await supabase.from('cards').delete().eq('id', id);
+        if (error) throw error;
+    },
+
+    moveCard: async (cardId: string, columnId: string, position: number) => {
+        const { error } = await supabase
+            .from('cards')
+            .update({ column_id: columnId, position })
+            .eq('id', cardId);
         if (error) throw error;
     },
 
@@ -181,12 +227,30 @@ export const api = {
         if (error) throw error;
     },
 
-    // Board Members
+    // Board Members & Invitations
     addBoardMember: async (boardId: string, userId: string) => {
-        const { error } = await supabase
+        // Check if a record already exists (from prev declined/ghost invitation)
+        const { data: existing, error: checkError } = await supabase
             .from('board_members')
-            .insert([{ board_id: boardId, user_id: userId, status: 'pending' }]);
-        if (error) throw error;
+            .select('id, status')
+            .match({ board_id: boardId, user_id: userId })
+            .maybeSingle();
+
+        if (existing) {
+            // Record exists — just update status back to 'pending'
+            const { error } = await supabase
+                .from('board_members')
+                .update({ status: 'pending' })
+                .eq('id', existing.id);
+            if (error) throw error;
+        } else {
+            // No record — insert fresh
+            const { data, error } = await supabase
+                .from('board_members')
+                .insert([{ board_id: boardId, user_id: userId, role: 'editor', status: 'pending' }])
+                .select();
+            if (error) throw error;
+        }
     },
 
     removeBoardMember: async (boardId: string, userId: string) => {
@@ -197,31 +261,65 @@ export const api = {
         if (error) throw error;
     },
 
-    fetchInvitations: async (userId: string) => {
-        const { data, error } = await supabase
-            .from('board_members')
-            .select('*, boards(id, name, type, owner_id)')
-            .match({ user_id: userId, status: 'pending' });
-        if (error) throw error;
-        return data;
-    },
-
     updateInvitationStatus: async (boardId: string, userId: string, status: 'accepted' | 'declined') => {
-        if (status === 'declined') {
-            return api.removeBoardMember(boardId, userId);
-        }
         const { error } = await supabase
             .from('board_members')
-            .update({ status: 'accepted' })
+            .update({ status: status })
             .match({ board_id: boardId, user_id: userId });
         if (error) throw error;
     },
 
-    // Users
-    searchUsers: async (query: string) => {
+    deleteInvitation: async (inviteId: string) => {
+        const { error } = await supabase
+            .from('board_members')
+            .delete()
+            .eq('id', inviteId);
+        if (error) throw error;
+    },
+
+    fetchInvitations: async (userId: string) => {
+        const { data, error } = await supabase
+            .from('board_members')
+            .select(`
+                id,
+                board_id,
+                user_id,
+                status,
+                boards!inner (
+                    id,
+                    name
+                )
+            `)
+            .eq('user_id', userId)
+            .eq('status', 'pending');
+        if (error) throw error;
+        return data as any[];
+    },
+
+    createNotification: async (boardId: string, message: string) => {
+        // Fallback to logActivity if no notifications table exists, 
+        // or use a dedicated notifications table if preferred.
+        // Based on previous context, this likely goes to activities.
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        await api.logActivity('', user.id, message, 'system', { boardId });
+    },
+
+    fetchProfiles: async (query: string) => {
         const { data, error } = await supabase
             .from('profiles')
             .select('*')
+            .or(`full_name.ilike.%${query}%,email.ilike.%${query}%`)
+            .limit(5);
+        if (error) throw error;
+        return data;
+    },
+
+    searchUsers: async (query: string) => {
+        const { data, error } = await supabase
+            .from('profiles')
+            .select('id, full_name, avatar_url, email')
             .or(`full_name.ilike.%${query}%,email.ilike.%${query}%`)
             .limit(10);
 
@@ -229,44 +327,20 @@ export const api = {
         return data;
     },
 
-    fetchProfiles: async (userIds: string[]) => {
-        const { data, error } = await supabase
-            .from('profiles')
-            .select('*')
-            .in('id', userIds);
-
-        if (error) throw error;
-        return data;
-    },
-
-    // Toggle board favorite status
-    toggleBoardFavorite: async (boardId: string, isFavorite: boolean) => {
+    // Activities
+    logActivity: async (cardId: string, userId: string, text: string, type: string, params: any = {}) => {
         const { error } = await supabase
-            .from('boards')
-            .update({ is_favorite: isFavorite })
-            .eq('id', boardId);
-
-        if (error) {
-            console.error("api: toggleBoardFavorite error:", error);
-            throw error;
-        }
-    },
-
-    // Notifications
-    createNotification: async (boardId: string, message: string) => {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
-
-        try {
-            const { error } = await supabase.from('board_activities').insert([{
-                board_id: boardId,
-                user_id: user.id,
-                text: message,
-                type: 'system'
+            .from('activities')
+            .insert([{
+                card_id: cardId,
+                user_id: userId,
+                text,
+                type,
+                params,
+                timestamp: new Date().toISOString()
             }]);
-            if (error) console.error("api: error creating notification", error);
-        } catch (e) {
-            console.warn("api: board_activities table likely missing, notification suppressed.");
+        if (error) {
+            console.error("api: logActivity error", error);
         }
     }
 };

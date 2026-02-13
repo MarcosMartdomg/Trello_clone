@@ -39,11 +39,16 @@ export function InboxView() {
     const myCards = allCards.filter(c => c.members.some(m => m.id === user?.id))
 
     const now = new Date()
-    const fortyEightHoursFromNow = new Date(now.getTime() + (48 * 60 * 60 * 1000))
+    const sevenDaysFromNow = new Date(now.getTime() + (7 * 24 * 60 * 60 * 1000))
 
     const recommendations = myCards.filter(card => {
+        // Exclude cards where all checklist items are completed (if checklist exists)
+        const hasChecklist = card.checklist && card.checklist.length > 0
+        const isCompleted = hasChecklist && card.checklist.every((i: any) => i.completed)
+        if (isCompleted) return false
+
         const isUrgent = card.priority === 'urgent' || card.priority === 'high'
-        const isDueSoon = card.due_date && new Date(card.due_date) <= fortyEightHoursFromNow
+        const isDueSoon = card.due_date && new Date(card.due_date) <= sevenDaysFromNow
         return isUrgent || isDueSoon
     }).sort((a, b) => {
         if (a.priority === 'urgent' && b.priority !== 'urgent') return -1

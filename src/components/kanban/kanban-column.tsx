@@ -235,7 +235,16 @@ export function KanbanColumnComponent({ column, isOverlay }: KanbanColumnProps) 
               className="text-sm font-semibold text-foreground truncate cursor-pointer hover:bg-accent/50 px-1 -ml-1 rounded transition-colors"
               title="Click to edit"
             >
-              {column.title}
+              {(() => {
+                const lowerTitle = column.title?.toLowerCase() || ""
+                if (column.id === 'todo' || lowerTitle === 'to do' || lowerTitle === 'todo' || lowerTitle === 'pendiente') return t('board.todo')
+                if (column.id === 'in-progress' || lowerTitle === 'in progress' || lowerTitle === 'in-progress' || lowerTitle === 'en progreso') return t('board.in-progress')
+                if (column.id === 'done' || lowerTitle === 'done' || lowerTitle === 'completado' || lowerTitle === 'hecho') return t('board.done')
+                // Fallback: If title is missing or looks like a UUID, show generic name
+                const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(column.title || column.id)
+                if (!column.title || isUUID) return t('board.columnTitle') || "Columna"
+                return column.title
+              })()}
             </h3>
           )}
 

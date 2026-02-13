@@ -7,13 +7,15 @@ import { useTranslation } from "@/hooks/use-translation"
 import { KanbanCard } from "@/lib/kanban-data"
 import { CardDetailsModal } from "./card-details-modal"
 import { cn } from "@/lib/utils"
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, isToday, addMonths, subMonths } from "date-fns"
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, isToday, addMonths, subMonths, isBefore, startOfToday } from "date-fns"
 
 export function CalendarView() {
     const [currentDate, setCurrentDate] = useState(new Date())
     const [selectedCard, setSelectedCard] = useState<KanbanCard | null>(null)
     const { boards } = useKanbanStore()
     const { t, language } = useTranslation()
+
+    const today = startOfToday()
 
     // Get all cards with due dates from all boards
     const getAllCardsWithDates = () => {
@@ -181,6 +183,7 @@ export function CalendarView() {
                         {calendarDays.map((day, index) => {
                             const dayCards = getCardsForDate(day)
                             const isCurrentDay = isToday(day)
+                            const isPast = isBefore(day, today)
 
                             return (
                                 <div
@@ -189,7 +192,9 @@ export function CalendarView() {
                                         "aspect-square border rounded-lg p-2 transition-all hover:shadow-md",
                                         isCurrentDay
                                             ? "border-primary bg-primary/5 ring-2 ring-primary/20"
-                                            : "border-border bg-card hover:border-primary/50"
+                                            : isPast
+                                                ? "border-border/50 bg-secondary/30 opacity-60 text-muted-foreground hover:opacity-100"
+                                                : "border-border bg-card hover:border-primary/50"
                                     )}
                                 >
                                     <div className="flex flex-col h-full">

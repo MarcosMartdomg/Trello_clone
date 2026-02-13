@@ -127,10 +127,10 @@ export function KanbanCard({ card, columnTitle }: KanbanCardProps) {
             {card.due_date && (
               <div className={cn(
                 "flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-md transition-colors",
-                new Date(card.due_date) < new Date()
-                  ? "bg-red-500/10 text-red-500 ring-1 ring-red-500/20"
-                  : new Date(card.due_date) > new Date()
-                    ? "bg-emerald-500/10 text-emerald-500 ring-1 ring-emerald-500/20"
+                checklistStats.done === checklistStats.total && checklistStats.total > 0
+                  ? "bg-emerald-500/10 text-emerald-500 ring-1 ring-emerald-500/20"
+                  : new Date(card.due_date) < new Date()
+                    ? "bg-red-500/10 text-red-500 ring-1 ring-red-500/20"
                     : "bg-secondary/50 text-muted-foreground ring-1 ring-border/50"
               )}>
                 <Clock className="w-3 h-3" />

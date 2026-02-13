@@ -286,10 +286,20 @@ export function CardDetailsModal({ card, columnTitle, isOpen, onClose, isReadOnl
                                     <div className="flex items-center gap-2">
                                         <Button
                                             variant="outline"
-                                            className="h-9 justify-start text-left font-normal bg-secondary/20 hover:bg-secondary/40 border-transparent hover:border-primary/20"
+                                            className={cn(
+                                                "h-9 justify-start text-left font-normal transition-all",
+                                                card.checklist && card.checklist.length > 0 && card.checklist.every(i => i.completed)
+                                                    ? "bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 border-emerald-500/20"
+                                                    : "bg-secondary/20 hover:bg-secondary/40 border-transparent hover:border-primary/20"
+                                            )}
                                             onClick={() => setIsOpenDatePopover(true)}
                                         >
-                                            <CalendarIcon className="mr-2 h-4 w-4 text-primary" />
+                                            <CalendarIcon className={cn(
+                                                "mr-2 h-4 w-4",
+                                                card.checklist && card.checklist.length > 0 && card.checklist.every(i => i.completed)
+                                                    ? "text-emerald-500"
+                                                    : "text-primary"
+                                            )} />
                                             {format(date, "PPP")} at {format(date, "p")}
                                         </Button>
                                     </div>

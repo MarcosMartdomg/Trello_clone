@@ -17,7 +17,7 @@ interface KanbanState {
     isSearchOpen: boolean;
     invitations: any[];
     activeNotifications: any[];
-    processedInvitations: string[];
+    // processedInvitations removed — we trust the backend status filter
 
     // Actions
     setCurrentView: (view: 'board' | 'my-tasks' | 'boards-list' | 'calendar' | 'inbox') => void;
@@ -74,7 +74,6 @@ export const useKanbanStore = create<KanbanState>()(
             isSearchOpen: false,
             invitations: [],
             activeNotifications: [],
-            processedInvitations: [],
 
             setCurrentView: (view: 'board' | 'my-tasks' | 'boards-list' | 'calendar' | 'inbox') => set({ currentView: view }),
             setSearchOpen: (isOpen: boolean) => set({ isSearchOpen: isOpen }),
@@ -84,7 +83,6 @@ export const useKanbanStore = create<KanbanState>()(
                 activeBoardId: null,
                 invitations: [],
                 activeNotifications: [],
-                processedInvitations: [],
                 currentView: 'boards-list'
             }),
 
@@ -271,17 +269,17 @@ export const useKanbanStore = create<KanbanState>()(
 
             fetchInvitations: async (userId: string) => {
                 try {
-                    const nextInvitations = await api.fetchInvitations(userId);
+                    const allInvites = await api.fetchInvitations(userId);
+                    // Filter out invitations for boards that no longer exist
+                    const nextInvitations = allInvites.filter((invite: any) => invite.boards !== null);
+
                     const currentInvitations = get().invitations;
-                    const processedIds = get().processedInvitations;
                     const activeNotifs = get().activeNotifications;
 
                     // Detect new invitations to show toasts
                     nextInvitations.forEach((invite: any) => {
-                        // Skip if already processed or already has a notification or is already in current local state
-                        const isProcessed = processedIds.includes(invite.id);
                         const hasNotification = activeNotifs.some((n: any) => n.id === `invite-${invite.id}`);
-                        const isNew = !currentInvitations.find((c: any) => c.id === invite.id) && !isProcessed && !hasNotification;
+                        const isNew = !currentInvitations.find((c: any) => c.id === invite.id) && !hasNotification;
 
                         if (isNew) {
                             get().addNotification({
@@ -294,23 +292,20 @@ export const useKanbanStore = create<KanbanState>()(
                         }
                     });
 
-                    // Update state, filtering out anything currently being processed
-                    set({
-                        invitations: nextInvitations.filter((i: any) => !processedIds.includes(i.id))
-                    });
+                    // Update state — no blacklist, trust backend status=pending filter
+                    set({ invitations: nextInvitations });
                 } catch (error) {
                     console.error("Store: Error fetching invitations", error);
                 }
             },
 
             acceptInvitation: async (boardId: string, userId: string) => {
-                const currentInvite = get().invitations.find(i => i.board_id === boardId && i.user_id === userId);
+                const currentInvite = get().invitations.find(i => i.board_id === boardId);
 
-                // Optimistic Local State Removal & Registry Entry
+                // Optimistic Local State Removal (no blacklist)
                 if (currentInvite) {
                     set(state => ({
-                        invitations: state.invitations.filter(i => i.id !== currentInvite.id),
-                        processedInvitations: [...state.processedInvitations, currentInvite.id]
+                        invitations: state.invitations.filter(i => i.id !== currentInvite.id)
                     }));
                     get().removeNotification(`invite-${currentInvite.id}`);
                 }
@@ -326,7 +321,7 @@ export const useKanbanStore = create<KanbanState>()(
                     const board = get().boards.find(b => b.id === boardId);
                     if (board) {
                         get().addNotification({
-                            id: `joined-${boardId}-${Date.now()}`, // Unique ID to prevent overlaps
+                            id: `joined-${boardId}-${Date.now()}`,
                             type: 'system',
                             boardName: board.name,
                             userId: userId,
@@ -335,39 +330,40 @@ export const useKanbanStore = create<KanbanState>()(
                     }
                 } catch (error) {
                     console.error("Store: Error accepting invitation", error);
-                    // Error feedback
                     get().addNotification({
                         id: `error-accept-${boardId}-${Date.now()}`,
                         type: 'system',
                         message: `members.errorAccepting`
                     });
-                    // Rollback if needed, though fetchInvitations will recover state
                     await get().fetchInvitations(userId);
                 }
             },
 
             declineInvitation: async (boardId: string, userId: string) => {
-                const currentInvite = get().invitations.find(i => i.board_id === boardId && i.user_id === userId);
+                const currentInvite = get().invitations.find(i => i.board_id === boardId);
 
-                // Optimistic Local State Removal & Registry Entry
+                // Optimistic Local State Removal (no blacklist)
                 if (currentInvite) {
                     set(state => ({
-                        invitations: state.invitations.filter(i => i.id !== currentInvite.id),
-                        processedInvitations: [...state.processedInvitations, currentInvite.id]
+                        invitations: state.invitations.filter(i => i.id !== currentInvite.id)
                     }));
                     get().removeNotification(`invite-${currentInvite.id}`);
                 }
 
                 try {
+                    // Primary: update status to 'declined' (reliable, works with RLS)
                     await api.updateInvitationStatus(boardId, userId, 'declined');
+                    // Secondary: try to delete the row too (best effort cleanup)
+                    if (currentInvite?.id) {
+                        try { await api.deleteInvitation(currentInvite.id); } catch (e) { /* ignore */ }
+                    }
                     await get().fetchInvitations(userId);
                 } catch (error) {
                     console.error("Store: Error declining invitation", error);
-                    // Error feedback
                     get().addNotification({
                         id: `error-decline-${boardId}-${Date.now()}`,
                         type: 'system',
-                        message: `members.errorDeclining` // I should add this translation if not there, but for now using generic
+                        message: `members.errorDeclining`
                     });
                     await get().fetchInvitations(userId);
                 }
@@ -508,7 +504,7 @@ export const useKanbanStore = create<KanbanState>()(
                 if (!column) return;
 
                 try {
-                    const newCard = await api.createCard(columnId, card, column.cards.length);
+                    const newCard = await api.createCard(columnId, card.title || 'New Card', column.cards.length);
                     // Re-fetch to get real UUIDs and data
                     const user = (await supabase.auth.getUser()).data.user;
                     if (user) await get().fetchBoards(user.id);

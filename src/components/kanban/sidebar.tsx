@@ -46,7 +46,8 @@ export function KanbanSidebar() {
         fetchInvitations,
         invitations,
         currentView,
-        setCurrentView
+        setCurrentView,
+        setSearchOpen
     } = useKanbanStore()
     const { user, signOut } = useAuth()
     const { t } = useTranslation()
@@ -56,11 +57,16 @@ export function KanbanSidebar() {
         if (user) {
             fetchBoards(user.id)
             fetchInvitations(user.id)
+
+            // Poll for new invitations every 10 seconds
+            const interval = setInterval(() => {
+                fetchInvitations(user.id)
+            }, 10000)
+            return () => clearInterval(interval)
         }
     }, [user, fetchBoards, fetchInvitations])
 
     const navItems = [
-        { id: "search", label: t('sidebar.search'), icon: Search },
         { id: "board", label: t('sidebar.myBoards'), icon: LayoutDashboard },
         { id: "tasks", label: t('sidebar.myTasks'), icon: CheckSquare },
         { id: "calendar", label: t('calendar.title'), icon: CalendarIcon },
@@ -114,7 +120,9 @@ export function KanbanSidebar() {
                         key={item.id}
                         type="button"
                         onClick={() => {
-                            if (item.id === "tasks") {
+                            if (item.id === "search") {
+                                setSearchOpen(true)
+                            } else if (item.id === "tasks") {
                                 setCurrentView("my-tasks")
                             } else if (item.id === "board") {
                                 setCurrentView("boards-list")
