@@ -43,9 +43,10 @@ interface CardDetailsModalProps {
     columnTitle: string
     isOpen: boolean
     onClose: () => void
+    isReadOnly?: boolean;
 }
 
-export function CardDetailsModal({ card, columnTitle, isOpen, onClose }: CardDetailsModalProps) {
+export function CardDetailsModal({ card, columnTitle, isOpen, onClose, isReadOnly = false }: CardDetailsModalProps) {
     const { updateCard, deleteCard, addCardMember, removeCardMember, boards, activeBoardId } = useKanbanStore()
     const [title, setTitle] = useState(card.title)
     const [description, setDescription] = useState(card.description)
@@ -206,6 +207,22 @@ export function CardDetailsModal({ card, columnTitle, isOpen, onClose }: CardDet
                     </div>
                 </div>
 
+                {isReadOnly && (
+                    <div className="bg-primary/5 border-y border-primary/10 px-10 py-3 flex items-center gap-4 animate-in fade-in slide-in-from-top-4 duration-500">
+                        <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                            <Activity className="w-5 h-5 text-primary" />
+                        </div>
+                        <div className="flex-1">
+                            <h4 className="text-sm font-black text-primary uppercase tracking-wider leading-none mb-1">
+                                {t('board.visionMode')}
+                            </h4>
+                            <p className="text-xs text-muted-foreground font-medium">
+                                {t('board.visionModeDesc')}
+                            </p>
+                        </div>
+                    </div>
+                )}
+
                 <div className="grid grid-cols-1 md:grid-cols-[1fr_260px] gap-10 p-10">
 
                     {/* Main Content */}
@@ -217,7 +234,11 @@ export function CardDetailsModal({ card, columnTitle, isOpen, onClose }: CardDet
                                 <Input
                                     value={title}
                                     onChange={(e) => setTitle(e.target.value)}
-                                    className="text-3xl font-extrabold bg-transparent border-0 px-0 h-auto focus-visible:ring-0 focus-visible:bg-accent/10 rounded-xl transition-all"
+                                    readOnly={isReadOnly}
+                                    className={cn(
+                                        "text-3xl font-extrabold bg-transparent border-0 px-0 h-auto focus-visible:ring-0 focus-visible:bg-accent/10 rounded-xl transition-all",
+                                        isReadOnly && "pointer-events-none select-none"
+                                    )}
                                 />
                             </DialogTitle>
                             <div className="flex items-center gap-2 text-sm text-muted-foreground/80 font-medium">
@@ -244,14 +265,16 @@ export function CardDetailsModal({ card, columnTitle, isOpen, onClose }: CardDet
                                                 </div>
                                             </div>
                                         ))}
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-8 w-8 rounded-full bg-secondary/50 hover:bg-secondary text-muted-foreground"
-                                            onClick={() => setIsOpenMembersPopover(true)}
-                                        >
-                                            <Plus className="h-4 w-4" />
-                                        </Button>
+                                        {!isReadOnly && (
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-8 w-8 rounded-full bg-secondary/50 hover:bg-secondary text-muted-foreground"
+                                                onClick={() => setIsOpenMembersPopover(true)}
+                                            >
+                                                <Plus className="h-4 w-4" />
+                                            </Button>
+                                        )}
                                     </div>
                                 </div>
                             )}
@@ -281,11 +304,13 @@ export function CardDetailsModal({ card, columnTitle, isOpen, onClose }: CardDet
                                 {colors.map((c) => (
                                     <button
                                         key={c.name}
-                                        onClick={() => updateCardColor(c.class)}
+                                        onClick={() => !isReadOnly && updateCardColor(c.class)}
+                                        disabled={isReadOnly}
                                         className={cn(
                                             "w-8 h-8 rounded-lg border-2 transition-all hover:scale-110",
                                             c.class,
-                                            card.color === c.class ? "border-primary shadow-lg ring-2 ring-primary/20" : "border-transparent"
+                                            card.color === c.class ? "border-primary shadow-lg ring-2 ring-primary/20" : "border-transparent",
+                                            isReadOnly && "cursor-default hover:scale-100 opacity-80"
                                         )}
                                         title={c.name}
                                     />
@@ -302,8 +327,12 @@ export function CardDetailsModal({ card, columnTitle, isOpen, onClose }: CardDet
                             <Textarea
                                 value={description}
                                 onChange={(e) => setDescription(e.target.value)}
+                                readOnly={isReadOnly}
                                 placeholder={t('board.descriptionPlaceholder')}
-                                className="min-h-[120px] bg-secondary/20 border-border/40 focus-visible:ring-primary/20 rounded-2xl p-4 text-sm leading-relaxed resize-none transition-all focus:bg-secondary/30"
+                                className={cn(
+                                    "min-h-[120px] bg-secondary/20 border-border/40 focus-visible:ring-primary/20 rounded-2xl p-4 text-sm leading-relaxed resize-none transition-all focus:bg-secondary/30",
+                                    isReadOnly && "pointer-events-none select-none opacity-80"
+                                )}
                             />
                         </div>
 
@@ -315,17 +344,19 @@ export function CardDetailsModal({ card, columnTitle, isOpen, onClose }: CardDet
                                         <CheckSquare className="w-5 h-5 text-primary" />
                                         <h3 className="text-lg font-bold tracking-tight">{t('board.checklist')}</h3>
                                     </div>
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        className="text-xs font-bold hover:bg-destructive/10 hover:text-destructive rounded-lg"
-                                        onClick={() => {
-                                            updateCard(card.id, { checklist: [] })
-                                            setShowChecklist(false)
-                                        }}
-                                    >
-                                        {t('common.delete')}
-                                    </Button>
+                                    {!isReadOnly && (
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="text-xs font-bold hover:bg-destructive/10 hover:text-destructive rounded-lg"
+                                            onClick={() => {
+                                                updateCard(card.id, { checklist: [] })
+                                                setShowChecklist(false)
+                                            }}
+                                        >
+                                            {t('common.delete')}
+                                        </Button>
+                                    )}
                                 </div>
 
                                 <div className="space-y-1.5 ml-1">
@@ -347,8 +378,12 @@ export function CardDetailsModal({ card, columnTitle, isOpen, onClose }: CardDet
                                                 <input
                                                     type="checkbox"
                                                     checked={item.completed}
-                                                    onChange={() => toggleChecklistItem(item.id)}
-                                                    className="w-4 h-4 rounded border-border text-primary focus:ring-0 cursor-pointer accent-primary"
+                                                    onChange={() => !isReadOnly && toggleChecklistItem(item.id)}
+                                                    disabled={isReadOnly}
+                                                    className={cn(
+                                                        "w-4 h-4 rounded border-border text-primary focus:ring-0 cursor-pointer accent-primary",
+                                                        isReadOnly && "cursor-default opacity-50"
+                                                    )}
                                                 />
                                                 <span className={cn(
                                                     "text-sm font-medium flex-1 transition-all",
@@ -356,33 +391,37 @@ export function CardDetailsModal({ card, columnTitle, isOpen, onClose }: CardDet
                                                 )}>
                                                     {item.text}
                                                 </span>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive/10 hover:text-destructive rounded-lg"
-                                                    onClick={() => deleteChecklistItem(item.id)}
-                                                >
-                                                    <Trash2 className="h-3.5 w-3.5" />
-                                                </Button>
+                                                {!isReadOnly && (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive/10 hover:text-destructive rounded-lg"
+                                                        onClick={() => deleteChecklistItem(item.id)}
+                                                    >
+                                                        <Trash2 className="h-3.5 w-3.5" />
+                                                    </Button>
+                                                )}
                                             </div>
                                         ))}
 
-                                        <div className="pt-2 flex gap-2">
-                                            <Input
-                                                value={newChecklistItem}
-                                                onChange={(e) => setNewChecklistItem(e.target.value)}
-                                                placeholder={t('board.addItem')}
-                                                onKeyDown={(e) => e.key === 'Enter' && addChecklistItem()}
-                                                className="h-9 text-xs bg-secondary/10 border-border/30 focus-visible:ring-primary/20 rounded-xl px-4"
-                                            />
-                                            <Button
-                                                onClick={addChecklistItem}
-                                                size="sm"
-                                                className="h-9 px-4 rounded-xl font-bold text-xs"
-                                            >
-                                                {t('board.add')}
-                                            </Button>
-                                        </div>
+                                        {!isReadOnly && (
+                                            <div className="pt-2 flex gap-2">
+                                                <Input
+                                                    value={newChecklistItem}
+                                                    onChange={(e) => setNewChecklistItem(e.target.value)}
+                                                    placeholder={t('board.addItem')}
+                                                    onKeyDown={(e) => e.key === 'Enter' && addChecklistItem()}
+                                                    className="h-9 text-xs bg-secondary/10 border-border/30 focus-visible:ring-primary/20 rounded-xl px-4"
+                                                />
+                                                <Button
+                                                    onClick={addChecklistItem}
+                                                    size="sm"
+                                                    className="h-9 px-4 rounded-xl font-bold text-xs"
+                                                >
+                                                    {t('board.add')}
+                                                </Button>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             </div>
@@ -436,151 +475,153 @@ export function CardDetailsModal({ card, columnTitle, isOpen, onClose }: CardDet
                     {/* Sidebar Actions */}
                     <div className="space-y-8">
 
-                        <div className="space-y-3">
-                            <h4 className="text-[11px] font-black text-muted-foreground/70 uppercase tracking-[0.2em] ml-1">{t('board.addToCard')}</h4>
-                            <div className="grid grid-cols-1 gap-2">
-                                {/* MEMBERS POPOVER */}
-                                <Popover open={isOpenMembersPopover} onOpenChange={setIsOpenMembersPopover}>
-                                    <PopoverTrigger asChild>
-                                        <Button variant="secondary" className="w-full justify-start gap-3 h-10 text-[11px] font-bold uppercase tracking-wider bg-secondary/40 hover:bg-primary hover:text-primary-foreground rounded-xl border border-transparent hover:border-primary/20 transition-all shadow-sm">
-                                            <User className="w-4 h-4" />
-                                            {t('board.members')}
-                                        </Button>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-[280px] p-0 shadow-2xl rounded-2xl border-border/40 bg-card overflow-hidden" align="start" sideOffset={8}>
-                                        <div className="flex items-center justify-between px-4 py-3 border-b border-border/30 bg-muted/20">
-                                            <span className="text-xs font-bold text-foreground mx-auto">{t('board.members')}</span>
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className="h-6 w-6 rounded-full absolute right-2 hover:bg-secondary/60"
-                                                onClick={() => setIsOpenMembersPopover(false)}
-                                            >
-                                                <XIcon className="w-3 h-3 opacity-60" />
+                        {!isReadOnly && (
+                            <div className="space-y-3">
+                                <h4 className="text-[11px] font-black text-muted-foreground/70 uppercase tracking-[0.2em] ml-1">{t('board.addToCard')}</h4>
+                                <div className="grid grid-cols-1 gap-2">
+                                    {/* MEMBERS POPOVER */}
+                                    <Popover open={isOpenMembersPopover} onOpenChange={setIsOpenMembersPopover}>
+                                        <PopoverTrigger asChild>
+                                            <Button variant="secondary" className="w-full justify-start gap-3 h-10 text-[11px] font-bold uppercase tracking-wider bg-secondary/40 hover:bg-primary hover:text-primary-foreground rounded-xl border border-transparent hover:border-primary/20 transition-all shadow-sm">
+                                                <User className="w-4 h-4" />
+                                                {t('board.members')}
                                             </Button>
-                                        </div>
-
-                                        <div className="p-2 space-y-1">
-                                            <Input
-                                                placeholder={t('members.searchPlaceholder')}
-                                                className="h-8 text-xs bg-secondary/20 border-border/40 rounded-lg mb-2"
-                                            />
-                                            <div className="space-y-1 max-h-[200px] overflow-y-auto">
-                                                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-2 py-1">{t('board.boardMembers')}</p>
-                                                {boardMembers.length === 0 && (
-                                                    <p className="text-xs text-muted-foreground italic px-2 py-2">{t('members.noMembers')}</p>
-                                                )}
-                                                {boardMembers.map(member => {
-                                                    const isSelected = card.members?.some(m => m.id === member.id)
-                                                    return (
-                                                        <button
-                                                            key={member.id}
-                                                            onClick={() => toggleMember(member.id)}
-                                                            className="flex items-center gap-3 w-full p-2 hover:bg-secondary/40 rounded-lg transition-colors group"
-                                                        >
-                                                            <Avatar className="h-7 w-7">
-                                                                <AvatarFallback className="text-[9px] font-bold bg-primary/10 text-primary">{member.name?.[0]}</AvatarFallback>
-                                                            </Avatar>
-                                                            <span className="text-xs font-medium text-foreground flex-1 text-left truncate">{member.name}</span>
-                                                            {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-primary" />}
-                                                        </button>
-                                                    )
-                                                })}
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-[280px] p-0 shadow-2xl rounded-2xl border-border/40 bg-card overflow-hidden" align="start" sideOffset={8}>
+                                            <div className="flex items-center justify-between px-4 py-3 border-b border-border/30 bg-muted/20">
+                                                <span className="text-xs font-bold text-foreground mx-auto">{t('board.members')}</span>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-6 w-6 rounded-full absolute right-2 hover:bg-secondary/60"
+                                                    onClick={() => setIsOpenMembersPopover(false)}
+                                                >
+                                                    <XIcon className="w-3 h-3 opacity-60" />
+                                                </Button>
                                             </div>
-                                        </div>
-                                    </PopoverContent>
-                                </Popover>
 
-                                <SidebarButton icon={CheckSquare} label={t('board.checklist')} onClick={() => setShowChecklist(true)} />
+                                            <div className="p-2 space-y-1">
+                                                <Input
+                                                    placeholder={t('members.searchPlaceholder')}
+                                                    className="h-8 text-xs bg-secondary/20 border-border/40 rounded-lg mb-2"
+                                                />
+                                                <div className="space-y-1 max-h-[200px] overflow-y-auto">
+                                                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-2 py-1">{t('board.boardMembers')}</p>
+                                                    {boardMembers.length === 0 && (
+                                                        <p className="text-xs text-muted-foreground italic px-2 py-2">{t('members.noMembers')}</p>
+                                                    )}
+                                                    {boardMembers.map(member => {
+                                                        const isSelected = card.members?.some(m => m.id === member.id)
+                                                        return (
+                                                            <button
+                                                                key={member.id}
+                                                                onClick={() => toggleMember(member.id)}
+                                                                className="flex items-center gap-3 w-full p-2 hover:bg-secondary/40 rounded-lg transition-colors group"
+                                                            >
+                                                                <Avatar className="h-7 w-7">
+                                                                    <AvatarFallback className="text-[9px] font-bold bg-primary/10 text-primary">{member.name?.[0]}</AvatarFallback>
+                                                                </Avatar>
+                                                                <span className="text-xs font-medium text-foreground flex-1 text-left truncate">{member.name}</span>
+                                                                {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-primary" />}
+                                                            </button>
+                                                        )
+                                                    })}
+                                                </div>
+                                            </div>
+                                        </PopoverContent>
+                                    </Popover>
 
-                                <Popover open={isOpenDatePopover} onOpenChange={setIsOpenDatePopover}>
-                                    <PopoverTrigger asChild>
-                                        <Button variant="secondary" className="w-full justify-start gap-3 h-10 text-[11px] font-bold uppercase tracking-wider bg-secondary/40 hover:bg-primary hover:text-primary-foreground rounded-xl border border-transparent hover:border-primary/20 transition-all shadow-sm">
-                                            <CalendarIcon className="w-4 h-4" />
-                                            {t('board.dates')}
-                                        </Button>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-[340px] p-0 shadow-2xl rounded-2xl border-border/40 bg-card overflow-hidden" align="start" sideOffset={8}>
-                                        {/* Header */}
-                                        <div className="flex items-center justify-between px-5 py-3.5 border-b border-border/30">
-                                            <div className="w-7" />
-                                            <span className="text-sm font-bold text-foreground">{t('board.dates')}</span>
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className="h-7 w-7 rounded-full hover:bg-secondary/60"
-                                                onClick={() => setIsOpenDatePopover(false)}
-                                            >
-                                                <XIcon className="w-3.5 h-3.5 opacity-60" />
+                                    <SidebarButton icon={CheckSquare} label={t('board.checklist')} onClick={() => setShowChecklist(true)} />
+
+                                    <Popover open={isOpenDatePopover} onOpenChange={setIsOpenDatePopover}>
+                                        <PopoverTrigger asChild>
+                                            <Button variant="secondary" className="w-full justify-start gap-3 h-10 text-[11px] font-bold uppercase tracking-wider bg-secondary/40 hover:bg-primary hover:text-primary-foreground rounded-xl border border-transparent hover:border-primary/20 transition-all shadow-sm">
+                                                <CalendarIcon className="w-4 h-4" />
+                                                {t('board.dates')}
                                             </Button>
-                                        </div>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-[340px] p-0 shadow-2xl rounded-2xl border-border/40 bg-card overflow-hidden" align="start" sideOffset={8}>
+                                            {/* Header */}
+                                            <div className="flex items-center justify-between px-5 py-3.5 border-b border-border/30">
+                                                <div className="w-7" />
+                                                <span className="text-sm font-bold text-foreground">{t('board.dates')}</span>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-7 w-7 rounded-full hover:bg-secondary/60"
+                                                    onClick={() => setIsOpenDatePopover(false)}
+                                                >
+                                                    <XIcon className="w-3.5 h-3.5 opacity-60" />
+                                                </Button>
+                                            </div>
 
-                                        {/* Calendar */}
-                                        <div className="px-2 pt-2 pb-0 flex justify-center">
-                                            <Calendar
-                                                mode="single"
-                                                selected={tempDate}
-                                                onSelect={handleDateSelect}
-                                                initialFocus
-                                                className="rounded-lg border-0 shadow-none"
-                                            />
-                                        </div>
+                                            {/* Calendar */}
+                                            <div className="px-2 pt-2 pb-0 flex justify-center">
+                                                <Calendar
+                                                    mode="single"
+                                                    selected={tempDate}
+                                                    onSelect={handleDateSelect}
+                                                    initialFocus
+                                                    className="rounded-lg border-0 shadow-none"
+                                                />
+                                            </div>
 
-                                        {/* Inputs Section */}
-                                        <div className="px-5 pb-5 space-y-5">
-                                            {/* Due Date */}
-                                            <div className="space-y-2.5">
-                                                <span className="text-[11px] font-bold text-muted-foreground/70 uppercase tracking-wider">{t('board.dueDate')}</span>
-                                                <div className="flex gap-2.5">
-                                                    <div className="flex items-center h-10 px-3 rounded-lg border border-border/50 bg-background/60 flex-1 gap-2.5 focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary/40 transition-all">
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={dueDateChecked}
-                                                            onChange={(e) => setDueDateChecked(e.target.checked)}
-                                                            className="w-4 h-4 rounded border-border text-primary focus:ring-0 cursor-pointer accent-primary"
-                                                        />
-                                                        <input
-                                                            type="text"
-                                                            value={tempDate ? format(tempDate, "dd/MM/yyyy") : ""}
-                                                            readOnly
-                                                            className="text-sm font-medium bg-transparent border-0 w-full focus:outline-none cursor-default text-foreground/90"
-                                                            placeholder="D/M/AAAA"
-                                                        />
-                                                    </div>
-                                                    <div className="w-[100px]">
-                                                        <div className="flex items-center h-10 px-3 rounded-lg border border-border/50 bg-background/60 gap-2 focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary/40 transition-all">
+                                            {/* Inputs Section */}
+                                            <div className="px-5 pb-5 space-y-5">
+                                                {/* Due Date */}
+                                                <div className="space-y-2.5">
+                                                    <span className="text-[11px] font-bold text-muted-foreground/70 uppercase tracking-wider">{t('board.dueDate')}</span>
+                                                    <div className="flex gap-2.5">
+                                                        <div className="flex items-center h-10 px-3 rounded-lg border border-border/50 bg-background/60 flex-1 gap-2.5 focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary/40 transition-all">
                                                             <input
-                                                                type="time"
-                                                                value={tempDate ? format(tempDate, "HH:mm") : ""}
-                                                                onChange={handleTimeChange}
-                                                                className="text-sm font-medium bg-transparent border-0 w-full focus:outline-none text-foreground/90 [&::-webkit-calendar-picker-indicator]:opacity-40 [&::-webkit-calendar-picker-indicator]:hover:opacity-80"
+                                                                type="checkbox"
+                                                                checked={dueDateChecked}
+                                                                onChange={(e) => setDueDateChecked(e.target.checked)}
+                                                                className="w-4 h-4 rounded border-border text-primary focus:ring-0 cursor-pointer accent-primary"
                                                             />
+                                                            <input
+                                                                type="text"
+                                                                value={tempDate ? format(tempDate, "dd/MM/yyyy") : ""}
+                                                                readOnly
+                                                                className="text-sm font-medium bg-transparent border-0 w-full focus:outline-none cursor-default text-foreground/90"
+                                                                placeholder="D/M/AAAA"
+                                                            />
+                                                        </div>
+                                                        <div className="w-[100px]">
+                                                            <div className="flex items-center h-10 px-3 rounded-lg border border-border/50 bg-background/60 gap-2 focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary/40 transition-all">
+                                                                <input
+                                                                    type="time"
+                                                                    value={tempDate ? format(tempDate, "HH:mm") : ""}
+                                                                    onChange={handleTimeChange}
+                                                                    className="text-sm font-medium bg-transparent border-0 w-full focus:outline-none text-foreground/90 [&::-webkit-calendar-picker-indicator]:opacity-40 [&::-webkit-calendar-picker-indicator]:hover:opacity-80"
+                                                                />
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 </div>
-                                            </div>
 
-                                            {/* Buttons */}
-                                            <div className="grid grid-cols-1 gap-2.5 pt-1">
-                                                <Button
-                                                    onClick={saveDate}
-                                                    className="w-full h-10 rounded-xl font-bold text-sm shadow-md shadow-primary/10 hover:shadow-primary/20 transition-all"
-                                                >
-                                                    {t('board.save')}
-                                                </Button>
-                                                <Button
-                                                    variant="secondary"
-                                                    onClick={removeDate}
-                                                    className="w-full h-10 rounded-xl font-bold text-sm bg-secondary/40 hover:bg-destructive/10 hover:text-destructive border border-transparent hover:border-destructive/20 transition-all"
-                                                >
-                                                    {t('board.remove')}
-                                                </Button>
+                                                {/* Buttons */}
+                                                <div className="grid grid-cols-1 gap-2.5 pt-1">
+                                                    <Button
+                                                        onClick={saveDate}
+                                                        className="w-full h-10 rounded-xl font-bold text-sm shadow-md shadow-primary/10 hover:shadow-primary/20 transition-all"
+                                                    >
+                                                        {t('board.save')}
+                                                    </Button>
+                                                    <Button
+                                                        variant="secondary"
+                                                        onClick={removeDate}
+                                                        className="w-full h-10 rounded-xl font-bold text-sm bg-secondary/40 hover:bg-destructive/10 hover:text-destructive border border-transparent hover:border-destructive/20 transition-all"
+                                                    >
+                                                        {t('board.remove')}
+                                                    </Button>
+                                                </div>
                                             </div>
-                                        </div>
-                                    </PopoverContent>
-                                </Popover>
+                                        </PopoverContent>
+                                    </Popover>
+                                </div>
                             </div>
-                        </div>
+                        )}
 
                         <div className="space-y-4">
                             <h4 className="text-[11px] font-black text-muted-foreground/70 uppercase tracking-[0.2em] ml-1">{t('board.actions')}</h4>
@@ -596,17 +637,18 @@ export function CardDetailsModal({ card, columnTitle, isOpen, onClose }: CardDet
                                             card.labels.map(label => (
                                                 <button
                                                     key={label.id || label.text}
-                                                    onClick={() => {
-                                                        const newLabels = card.labels.filter(l => (l.id || l.text) !== (label.id || label.text));
-                                                        updateCard(card.id, { labels: newLabels });
-                                                    }}
+                                                    onClick={() => !isReadOnly && (
+                                                        updateCard(card.id, { labels: card.labels.filter(l => (l.id || l.text) !== (label.id || label.text)) })
+                                                    )}
+                                                    disabled={isReadOnly}
                                                     className={cn(
                                                         "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[9px] font-black uppercase tracking-wider shadow-sm transition-all hover:scale-105 active:scale-95 group",
-                                                        label.color
+                                                        label.color,
+                                                        isReadOnly && "cursor-default hover:scale-100"
                                                     )}
                                                 >
                                                     {t(`tags.${label.text}`) !== `tags.${label.text}` ? t(`tags.${label.text}`) : label.text}
-                                                    <XIcon className="w-2 h-2 opacity-50 group-hover:opacity-100" />
+                                                    {!isReadOnly && <XIcon className="w-2 h-2 opacity-50 group-hover:opacity-100" />}
                                                 </button>
                                             ))
                                         ) : (
@@ -614,102 +656,114 @@ export function CardDetailsModal({ card, columnTitle, isOpen, onClose }: CardDet
                                         )}
                                     </div>
 
-                                    <div className="h-[1px] bg-border/30 mx-1" />
+                                    {!isReadOnly && <div className="h-[1px] bg-border/30 mx-1" />}
 
                                     {/* Predefined & Quick Add */}
-                                    <div className="grid grid-cols-1 gap-1.5">
-                                        {[
-                                            { id: 'low', text: 'low', color: 'bg-blue-500/20 text-blue-500 ring-1 ring-blue-500/30' },
-                                            { id: 'medium', text: 'medium', color: 'bg-amber-500/20 text-amber-500 ring-1 ring-amber-500/30' },
-                                            { id: 'high', text: 'high', color: 'bg-orange-500/20 text-orange-500 ring-1 ring-orange-500/30' },
-                                            { id: 'urgent', text: 'urgent', color: 'bg-red-500/20 text-red-500 ring-1 ring-red-500/30' },
-                                        ].map(preset => {
-                                            const isActive = card.labels?.some(l => l.id === preset.id || l.text === preset.text);
-                                            return (
-                                                <Button
-                                                    key={preset.id}
-                                                    variant="ghost"
-                                                    disabled={isActive}
-                                                    className={cn(
-                                                        "w-full justify-start gap-2.5 h-9 text-[11px] font-bold uppercase tracking-wider rounded-xl transition-all hover:bg-primary/10 hover:text-primary",
-                                                        isActive && "opacity-50 grayscale"
-                                                    )}
-                                                    onClick={() => {
-                                                        const newLabels = [...(card.labels || []), { id: preset.id, text: preset.text, color: preset.color }];
-                                                        updateCard(card.id, { labels: newLabels });
-                                                    }}
-                                                >
-                                                    <div className={cn("w-2 h-2 rounded-full", preset.color.split(' ')[0])} />
-                                                    {t(`tags.${preset.text}`)}
-                                                </Button>
-                                            );
-                                        })}
-                                    </div>
+                                    {!isReadOnly && (
+                                        <div className="grid grid-cols-1 gap-1.5">
+                                            {[
+                                                { id: 'low', text: 'low', color: 'bg-blue-500/20 text-blue-500 ring-1 ring-blue-500/30' },
+                                                { id: 'medium', text: 'medium', color: 'bg-amber-500/20 text-amber-500 ring-1 ring-amber-500/30' },
+                                                { id: 'high', text: 'high', color: 'bg-orange-500/20 text-orange-500 ring-1 ring-orange-500/30' },
+                                                { id: 'urgent', text: 'urgent', color: 'bg-red-500/20 text-red-500 ring-1 ring-red-500/30' },
+                                            ].map(preset => {
+                                                const isActive = card.labels?.some(l => l.id === preset.id || l.text === preset.text);
+                                                return (
+                                                    <Button
+                                                        key={preset.id}
+                                                        variant="ghost"
+                                                        disabled={isActive}
+                                                        className={cn(
+                                                            "w-full justify-start gap-2.5 h-9 text-[11px] font-bold uppercase tracking-wider rounded-xl transition-all hover:bg-primary/10 hover:text-primary",
+                                                            isActive && "opacity-50 grayscale"
+                                                        )}
+                                                        onClick={() => {
+                                                            const newLabels = [...(card.labels || []), { id: preset.id, text: preset.text, color: preset.color }];
+                                                            updateCard(card.id, { labels: newLabels });
+                                                        }}
+                                                    >
+                                                        <div className={cn("w-2 h-2 rounded-full", preset.color.split(' ')[0])} />
+                                                        {t(`tags.${preset.text}`)}
+                                                    </Button>
+                                                );
+                                            })}
 
-                                    {/* Custom Label Creator (Minimal) */}
-                                    <Popover>
-                                        <PopoverTrigger asChild>
-                                            <Button variant="outline" className="w-full h-8 text-[9px] font-black uppercase tracking-widest border-dashed border-border/60 hover:border-primary/40 hover:bg-primary/5 transition-all rounded-xl mt-2">
-                                                <Plus className="w-3 h-3 mr-1.5" />
-                                                {t('board.createLabel')}
-                                            </Button>
-                                        </PopoverTrigger>
-                                        <PopoverContent className="w-64 p-4 space-y-4 bg-card/95 backdrop-blur-xl border-border/50 rounded-2xl shadow-2xl">
-                                            <div className="space-y-2">
-                                                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">{t('board.labelName')}</label>
-                                                <Input
-                                                    id="new-label-name"
-                                                    placeholder="..."
-                                                    className="h-9 text-xs bg-secondary/20 border-border/40 focus-visible:ring-primary/20 rounded-xl"
-                                                />
-                                            </div>
-                                            <div className="space-y-2">
-                                                <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">{t('board.cardColor')}</label>
-                                                <div className="grid grid-cols-5 gap-2">
-                                                    {[
-                                                        'bg-red-500', 'bg-orange-500', 'bg-amber-500', 'bg-emerald-500',
-                                                        'bg-blue-500', 'bg-violet-500', 'bg-purple-500', 'bg-pink-500',
-                                                        'bg-slate-500', 'bg-zinc-500'
-                                                    ].map(color => (
-                                                        <button
-                                                            key={color}
-                                                            className={cn("w-full aspect-square rounded-lg transition-all hover:scale-110", color)}
-                                                            onClick={() => {
-                                                                const name = (document.getElementById('new-label-name') as HTMLInputElement)?.value;
-                                                                if (!name) return;
-                                                                const colorClass = `${color}/20 ${color.replace('bg-', 'text-')} ring-1 ${color.replace('bg-', 'ring-')}/30`;
-                                                                const newLabels = [...(card.labels || []), {
-                                                                    id: `custom-${Date.now()}`,
-                                                                    text: name,
-                                                                    color: colorClass
-                                                                }];
-                                                                updateCard(card.id, { labels: newLabels });
-                                                                (document.getElementById('new-label-name') as HTMLInputElement).value = '';
-                                                            }}
+                                            {/* Custom Label Creator (Minimal) */}
+                                            <Popover>
+                                                <PopoverTrigger asChild>
+                                                    <Button variant="outline" className="w-full h-8 text-[9px] font-black uppercase tracking-widest border-dashed border-border/60 hover:border-primary/40 hover:bg-primary/5 transition-all rounded-xl mt-2">
+                                                        <Plus className="w-3 h-3 mr-1.5" />
+                                                        {t('board.createLabel')}
+                                                    </Button>
+                                                </PopoverTrigger>
+                                                <PopoverContent className="w-64 p-4 space-y-4 bg-card/95 backdrop-blur-xl border-border/50 rounded-2xl shadow-2xl">
+                                                    <div className="space-y-2">
+                                                        <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">{t('board.labelName')}</label>
+                                                        <Input
+                                                            id="new-label-name"
+                                                            placeholder="..."
+                                                            className="h-9 text-xs bg-secondary/20 border-border/40 focus-visible:ring-primary/20 rounded-xl"
                                                         />
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        </PopoverContent>
-                                    </Popover>
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">{t('board.cardColor')}</label>
+                                                        <div className="grid grid-cols-5 gap-2">
+                                                            {[
+                                                                'bg-red-500', 'bg-orange-500', 'bg-amber-500', 'bg-emerald-500',
+                                                                'bg-blue-500', 'bg-violet-500', 'bg-purple-500', 'bg-pink-500',
+                                                                'bg-slate-500', 'bg-zinc-500'
+                                                            ].map(color => (
+                                                                <button
+                                                                    key={color}
+                                                                    className={cn("w-full aspect-square rounded-lg transition-all hover:scale-110", color)}
+                                                                    onClick={() => {
+                                                                        const name = (document.getElementById('new-label-name') as HTMLInputElement)?.value;
+                                                                        if (!name) return;
+                                                                        const colorClass = `${color}/20 ${color.replace('bg-', 'text-')} ring-1 ${color.replace('bg-', 'ring-')}/30`;
+                                                                        const newLabels = [...(card.labels || []), {
+                                                                            id: `custom-${Date.now()}`,
+                                                                            text: name,
+                                                                            color: colorClass
+                                                                        }];
+                                                                        updateCard(card.id, { labels: newLabels });
+                                                                        (document.getElementById('new-label-name') as HTMLInputElement).value = '';
+                                                                    }}
+                                                                />
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                </PopoverContent>
+                                            </Popover>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
-                            <Button
-                                variant="destructive"
-                                className="w-full justify-start gap-2.5 h-11 text-[11px] font-black uppercase tracking-widest bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white border border-red-500/20 mt-6 rounded-xl shadow-sm transition-all"
-                                onClick={handleDelete}
-                            >
-                                <Trash2 className="w-4 h-4" />
-                                {t('board.deleteCard')}
-                            </Button>
+                            {!isReadOnly && (
+                                <Button
+                                    variant="destructive"
+                                    className="w-full justify-start gap-2.5 h-11 text-[11px] font-black uppercase tracking-widest bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white border border-red-500/20 mt-6 rounded-xl shadow-sm transition-all"
+                                    onClick={handleDelete}
+                                >
+                                    <Trash2 className="w-4 h-4" />
+                                    {t('board.deleteCard')}
+                                </Button>
+                            )}
                         </div>
                     </div>
                 </div>
 
                 <DialogFooter className="px-10 py-6 bg-secondary/30 border-t border-border/50 backdrop-blur-md gap-3">
-                    <Button variant="ghost" onClick={onClose} className="rounded-xl px-6 font-bold text-muted-foreground hover:bg-background">{t('common.cancel')}</Button>
-                    <Button onClick={handleSave} className="rounded-xl px-8 font-bold shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all">{t('board.saveChanges')}</Button>
+                    {isReadOnly ? (
+                        <Button onClick={onClose} className="rounded-xl px-12 font-bold shadow-lg bg-primary hover:scale-[1.02] active:scale-95 transition-all mx-auto">
+                            {t('common.ready')}
+                        </Button>
+                    ) : (
+                        <>
+                            <Button variant="ghost" onClick={onClose} className="rounded-xl px-6 font-bold text-muted-foreground hover:bg-background">{t('common.cancel')}</Button>
+                            <Button onClick={handleSave} className="rounded-xl px-8 font-bold shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all">{t('board.saveChanges')}</Button>
+                        </>
+                    )}
                 </DialogFooter>
 
             </DialogContent>

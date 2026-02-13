@@ -1,7 +1,7 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { Filter, Users, Zap, Search, X, Sun, Moon, Globe, Calendar, ArrowUp, ArrowDown } from "lucide-react"
+import { Filter, Users, Zap, Search, X, Sun, Moon, Globe, Calendar, ArrowUp, ArrowDown, Check } from "lucide-react"
 import { useKanbanStore } from "@/lib/store"
 import { useTheme } from "next-themes"
 import { cn } from "@/lib/utils"
@@ -19,7 +19,12 @@ import { MembersModal } from "./members-modal"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 
 export function BoardHeader() {
-    const { searchQuery, setSearchQuery, boards, activeBoardId, language, setLanguage, currentView } = useKanbanStore()
+    const {
+        searchQuery, setSearchQuery, boards, activeBoardId,
+        language, setLanguage, currentView,
+        priorityFilter, togglePriorityFilter, clearPriorityFilters,
+        tagFilter, toggleTagFilter, clearTagFilters
+    } = useKanbanStore()
     const { theme, setTheme } = useTheme()
     const { t } = useTranslation()
     const [isMembersModalOpen, setIsMembersModalOpen] = useState(false)
@@ -34,7 +39,7 @@ export function BoardHeader() {
     if (!activeBoard && !isTasksView && !isBoardsListView) return null
 
     return (
-        <header className="flex items-center justify-between px-6 h-14 border-b border-border bg-background/80 backdrop-blur-sm shrink-0 z-10">
+        <header className="flex items-center justify-between px-6 h-14 border-b border-border bg-background/80 backdrop-blur-sm shrink-0 z-10 transition-colors duration-300 ease-in-out">
             <div className="flex items-center gap-4">
                 {isTasksView ? (
                     <div>
@@ -67,54 +72,155 @@ export function BoardHeader() {
             </div>
 
             <div className="flex items-center gap-2">
-                {/* Search - Only show when viewing a board */}
-                {currentView === 'board' && activeBoard && (
-                    <div className="relative flex items-center">
-                        <Search className="absolute left-3 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
-                        <input
-                            type="text"
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            placeholder={t('header.searchPlaceholder')}
-                            className="pl-9 pr-8 py-1.5 w-64 rounded-lg bg-secondary/50 border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30 transition-all font-medium"
-                        />
-                        {searchQuery && (
-                            <button
-                                onClick={() => setSearchQuery("")}
-                                className="absolute right-2 p-1 hover:bg-accent rounded-md text-muted-foreground hover:text-foreground"
-                            >
-                                <X className="w-3 h-3" />
-                            </button>
+                {/* Search & Filter - Visible only on board or my-tasks view */}
+                {(currentView === 'board' || currentView === 'my-tasks') && (
+                    <>
+                        {currentView === 'board' && (
+                            <div className="relative flex items-center">
+                                <Search className="absolute left-3 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+                                <input
+                                    type="text"
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    placeholder={t('header.searchPlaceholder')}
+                                    className="pl-9 pr-8 py-1.5 w-64 rounded-lg bg-secondary/50 border border-border text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30 transition-all font-medium"
+                                />
+                                {searchQuery && (
+                                    <button
+                                        onClick={() => setSearchQuery("")}
+                                        className="absolute right-2 p-1 hover:bg-accent rounded-md text-muted-foreground hover:text-foreground"
+                                    >
+                                        <X className="w-3 h-3" />
+                                    </button>
+                                )}
+                            </div>
                         )}
-                    </div>
-                )}
 
-                {/* Filter button */}
-                {/* Filter & Sort Dropdown */}
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <button type="button" className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-colors border border-transparent hover:border-border">
-                            <Filter className="w-3.5 h-3.5" />
-                            <span className="text-xs">{t('header.filter')}</span>
-                        </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-48">
-                        <DropdownMenuLabel>{t('filters.sortBy')}</DropdownMenuLabel>
-                        <DropdownMenuItem>
-                            <Calendar className="mr-2 h-4 w-4 text-muted-foreground" />
-                            <span>{t('filters.date')}</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem>
-                            <ArrowUp className="mr-2 h-4 w-4 text-muted-foreground" />
-                            <span>{t('filters.priority')}</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem className="text-red-500 focus:text-red-500">
-                            <X className="mr-2 h-4 w-4" />
-                            <span>{t('filters.clearFilters')}</span>
-                        </DropdownMenuItem>
-                    </DropdownMenuContent>
-                </DropdownMenu>
+                        {/* Filter & Sort Dropdown */}
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <button type="button" className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-colors border border-transparent hover:border-border relative">
+                                    <Filter className="w-3.5 h-3.5" />
+                                    <span className="text-xs">{t('header.filter')}</span>
+                                    {isTasksView && (priorityFilter.length > 0 || tagFilter.length > 0) && (
+                                        <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-primary rounded-full border-2 border-background" />
+                                    )}
+                                </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-56 p-1.5 rounded-2xl bg-card/95 backdrop-blur-xl border-border/50 shadow-2xl max-h-[80vh] overflow-y-auto">
+                                {isTasksView ? (
+                                    <>
+                                        <DropdownMenuLabel className="text-[10px] font-black uppercase tracking-widest text-muted-foreground px-2 py-2">
+                                            {t('board.priority')}
+                                        </DropdownMenuLabel>
+                                        {[
+                                            { id: 'urgent', color: 'bg-[#fce7f3]' },
+                                            { id: 'high', color: 'bg-[#ffedd5]' },
+                                            { id: 'medium', color: 'bg-[#fef3c7]' },
+                                            { id: 'low', color: 'bg-[#dbeafe]' }
+                                        ].map((p) => (
+                                            <DropdownMenuItem
+                                                key={p.id}
+                                                onClick={(e) => {
+                                                    e.preventDefault()
+                                                    togglePriorityFilter(p.id)
+                                                }}
+                                                className="flex items-center gap-3 px-2 py-2.5 rounded-xl cursor-pointer focus:bg-primary/10 transition-colors group"
+                                            >
+                                                <div className={cn("w-3 h-3 rounded-full border border-black/5", p.color)} />
+                                                <span className="text-xs font-bold flex-1 text-foreground">{t(`tags.${p.id}`)}</span>
+                                                {priorityFilter.includes(p.id) && (
+                                                    <div className="w-4 h-4 rounded-full bg-primary flex items-center justify-center">
+                                                        <Check className="w-2.5 h-2.5 text-primary-foreground" />
+                                                    </div>
+                                                )}
+                                            </DropdownMenuItem>
+                                        ))}
+
+                                        <DropdownMenuSeparator className="my-1.5 bg-border/40" />
+
+                                        <DropdownMenuLabel className="text-[10px] font-black uppercase tracking-widest text-muted-foreground px-2 py-2">
+                                            {t('filters.tags')}
+                                        </DropdownMenuLabel>
+
+                                        {(() => {
+                                            // Get all unique tags from user's tasks
+                                            const { boards, tagFilter, toggleTagFilter } = useKanbanStore.getState()
+                                            // Logic to find assigned tasks (mimicking MyTasksView)
+                                            const userId = boards[0]?.ownerId // Simple fallback for finding current user via board ownership if auth not here, but shopuld use auth if possible
+                                            // Better: aggregate all tags from all boards since we don't have easy user access here without context
+                                            const allTagsMap = new Map();
+                                            boards.forEach(b => b.columns.forEach(c => c.cards.forEach(card => {
+                                                card.labels?.forEach(label => {
+                                                    if (!allTagsMap.has(label.text)) {
+                                                        allTagsMap.set(label.text, label.color);
+                                                    }
+                                                });
+                                            })));
+                                            const uniqueTags = Array.from(allTagsMap.entries()).map(([text, color]) => ({ text, color }));
+
+                                            if (uniqueTags.length === 0) {
+                                                return <div className="px-2 py-2 text-[10px] text-muted-foreground italic px-3">{t('board.noLabels')}</div>
+                                            }
+
+                                            return uniqueTags.map((tag) => (
+                                                <DropdownMenuItem
+                                                    key={tag.text}
+                                                    onClick={(e) => {
+                                                        e.preventDefault()
+                                                        toggleTagFilter(tag.text)
+                                                    }}
+                                                    className="flex items-center gap-3 px-2 py-2.5 rounded-xl cursor-pointer focus:bg-primary/10 transition-colors group"
+                                                >
+                                                    <div className={cn("px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider", tag.color)} >
+                                                        {t(`tags.${tag.text}`) !== `tags.${tag.text}` ? t(`tags.${tag.text}`) : tag.text}
+                                                    </div>
+                                                    <span className="flex-1"></span>
+                                                    {tagFilter.includes(tag.text) && (
+                                                        <div className="w-4 h-4 rounded-full bg-primary flex items-center justify-center">
+                                                            <Check className="w-2.5 h-2.5 text-primary-foreground" />
+                                                        </div>
+                                                    )}
+                                                </DropdownMenuItem>
+                                            ));
+                                        })()}
+
+                                        <DropdownMenuSeparator className="my-1.5 bg-border/40" />
+
+                                        <DropdownMenuItem
+                                            onClick={(e) => {
+                                                e.preventDefault()
+                                                clearPriorityFilters()
+                                                clearTagFilters()
+                                            }}
+                                            className="flex items-center gap-3 px-2 py-2.5 rounded-xl cursor-pointer focus:bg-red-500/10 text-red-500 font-bold transition-colors"
+                                        >
+                                            <X className="w-4 h-4" />
+                                            <span className="text-xs">{t('filters.clearFilters')}</span>
+                                        </DropdownMenuItem>
+                                    </>
+                                ) : (
+                                    <>
+                                        <DropdownMenuLabel>{t('filters.sortBy')}</DropdownMenuLabel>
+                                        <DropdownMenuItem>
+                                            <Calendar className="mr-2 h-4 w-4 text-muted-foreground" />
+                                            <span>{t('filters.date')}</span>
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem>
+                                            <ArrowUp className="mr-2 h-4 w-4 text-muted-foreground" />
+                                            <span>{t('filters.priority')}</span>
+                                        </DropdownMenuItem>
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem className="text-red-500 focus:text-red-500">
+                                            <X className="mr-2 h-4 w-4" />
+                                            <span>{t('filters.clearFilters')}</span>
+                                        </DropdownMenuItem>
+                                    </>
+                                )}
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    </>
+                )}
 
                 {/* Members button & Avatars */}
                 {!isTasksView && activeBoard?.type === 'shared' && (
@@ -174,24 +280,26 @@ export function BoardHeader() {
                             <Globe className="w-[18px] h-[18px]" />
                         </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="bg-card/80 backdrop-blur-xl border-white/10 rounded-2xl min-w-[120px]">
+                    <DropdownMenuContent align="end" className="bg-card/80 backdrop-blur-xl border-white/10 rounded-2xl min-w-[140px] p-1.5">
                         <DropdownMenuItem
                             onClick={() => setLanguage('es')}
                             className={cn(
-                                "gap-2 focus:bg-primary/20 focus:text-primary cursor-pointer rounded-xl font-medium",
+                                "gap-3 py-2.5 px-3 focus:bg-primary/20 focus:text-primary cursor-pointer rounded-xl font-medium transition-colors mb-1",
                                 language === 'es' && "text-primary bg-primary/10"
                             )}
                         >
-                            <span className="text-lg">🇪🇸</span> ES
+                            <img src="https://flagcdn.com/w40/es.png" alt="Español" className="w-5 h-auto rounded-sm shadow-sm" />
+                            <span className="text-sm">Español</span>
                         </DropdownMenuItem>
                         <DropdownMenuItem
                             onClick={() => setLanguage('en')}
                             className={cn(
-                                "gap-2 focus:bg-primary/20 focus:text-primary cursor-pointer rounded-xl font-medium",
+                                "gap-3 py-2.5 px-3 focus:bg-primary/20 focus:text-primary cursor-pointer rounded-xl font-medium transition-colors",
                                 language === 'en' && "text-primary bg-primary/10"
                             )}
                         >
-                            <span className="text-lg">🇺🇸</span> EN
+                            <img src="https://flagcdn.com/w40/us.png" alt="English" className="w-5 h-auto rounded-sm shadow-sm" />
+                            <span className="text-sm">English</span>
                         </DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>

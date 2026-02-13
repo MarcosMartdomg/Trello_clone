@@ -81,9 +81,9 @@ export function KanbanSidebar() {
         }
     }
 
-    const handleLeaveBoard = () => {
+    const handleLeaveBoard = (newOwnerId?: string) => {
         if (boardToLeave) {
-            leaveBoard(boardToLeave.id)
+            leaveBoard(boardToLeave.id, newOwnerId)
             setBoardToLeave(null)
         }
     }
@@ -91,7 +91,7 @@ export function KanbanSidebar() {
     return (
         <aside
             className={cn(
-                "relative flex flex-col border-r border-sidebar-border bg-sidebar h-screen transition-all duration-300 ease-in-out shrink-0 z-20",
+                "relative flex flex-col border-r border-sidebar-border bg-sidebar h-screen transition-all duration-300 ease-in-out shrink-0 z-20 transition-colors",
                 collapsed ? "w-16" : "w-64"
             )}
         >
@@ -169,7 +169,7 @@ export function KanbanSidebar() {
 
                             <div className="space-y-0.5">
                                 {boards
-                                    .filter(b => (b.type || 'personal') === 'personal')
+                                    .filter(b => b.ownerId === user?.id && (b.type || 'personal') === 'personal')
                                     .sort((a, b) => (b.isFavorite ? 1 : 0) - (a.isFavorite ? 1 : 0))
                                     .map((board) => (
                                         <BoardItem
@@ -180,10 +180,10 @@ export function KanbanSidebar() {
                                             setCurrentView={setCurrentView}
                                             onDelete={() => setBoardToDelete({ id: board.id, name: board.name })}
                                             onLeave={() => { }} // Not used for personal
-                                            isOwner={board.ownerId === user?.id}
+                                            isOwner={true}
                                         />
                                     ))}
-                                {boards.filter(b => (b.type || 'personal') === 'personal').length === 0 && (
+                                {boards.filter(b => b.ownerId === user?.id && (b.type || 'personal') === 'personal').length === 0 && (
                                     <p className="px-3 py-2 text-xs text-muted-foreground italic">{t('sidebar.noBoards')}</p>
                                 )}
                             </div>
@@ -200,7 +200,7 @@ export function KanbanSidebar() {
 
                             <div className="space-y-0.5">
                                 {boards
-                                    .filter(b => b.type === 'shared')
+                                    .filter(b => b.ownerId !== user?.id || b.type === 'shared')
                                     .sort((a, b) => (b.isFavorite ? 1 : 0) - (a.isFavorite ? 1 : 0))
                                     .map((board) => (
                                         <BoardItem
@@ -215,8 +215,19 @@ export function KanbanSidebar() {
                                             isOwner={board.ownerId === user?.id}
                                         />
                                     ))}
-                                {boards.filter(b => b.type === 'shared').length === 0 && (
-                                    <p className="px-3 py-2 text-xs text-muted-foreground italic">{t('members.noMembers')}</p>
+                                {boards.filter(b => b.ownerId !== user?.id || b.type === 'shared').length === 0 && (
+                                    <div className="px-3 py-2 space-y-2">
+                                        <p className="text-xs text-muted-foreground italic">{t('members.noMembers')}</p>
+                                        {invitations.length > 0 && (
+                                            <button
+                                                onClick={() => setCurrentView('inbox')}
+                                                className="flex items-center gap-2 w-full p-2 rounded-lg bg-primary/5 border border-primary/10 hover:bg-primary/10 text-[10px] font-bold text-primary transition-all animate-pulse"
+                                            >
+                                                <Inbox className="w-3 h-3" />
+                                                <span>{t('sidebar.checkInbox') || "Tienes invitaciones pendientes"}</span>
+                                            </button>
+                                        )}
+                                    </div>
                                 )}
                             </div>
                         </div>
@@ -347,20 +358,59 @@ function BoardItem({ board, activeBoardId, setActiveBoard, setCurrentView, onDel
             >
                 <Star className={cn("w-3 h-3", board.isFavorite && "fill-amber-400")} />
             </button>
-            <button
-                onClick={(e) => {
-                    e.stopPropagation();
-                    if (isOwner || !isShared) {
-                        onDelete();
-                    } else {
+            {/* If Shared Board and Owner: Show both Delete and Leave (Transfer) */}
+            {isShared && isOwner && (
+                <>
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onLeave();
+                        }}
+                        className="opacity-0 group-hover:opacity-100 p-1.5 rounded-md hover:bg-orange-500/10 text-muted-foreground hover:text-orange-500 transition-all duration-200"
+                        title={t('board.leaveTitle')}
+                    >
+                        <LogOut className="w-3 h-3" />
+                    </button>
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onDelete();
+                        }}
+                        className="opacity-0 group-hover:opacity-100 p-1.5 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-all duration-200"
+                        title={t('common.delete')}
+                    >
+                        <Trash2 className="w-3 h-3" />
+                    </button>
+                </>
+            )}
+
+            {/* If Shared Board and NOT Owner: Show Leave only */}
+            {isShared && !isOwner && (
+                <button
+                    onClick={(e) => {
+                        e.stopPropagation();
                         onLeave();
-                    }
-                }}
-                className="opacity-0 group-hover:opacity-100 p-1.5 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-all duration-200"
-                title={(isOwner || !isShared) ? t('common.delete') : t('board.leaveTitle')}
-            >
-                {(isOwner || !isShared) ? <Trash2 className="w-3 h-3" /> : <LogOut className="w-3 h-3" />}
-            </button>
+                    }}
+                    className="opacity-0 group-hover:opacity-100 p-1.5 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-all duration-200"
+                    title={t('board.leaveTitle')}
+                >
+                    <LogOut className="w-3 h-3" />
+                </button>
+            )}
+
+            {/* If Personal Board (Always Owner): Show Delete only */}
+            {!isShared && (
+                <button
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onDelete();
+                    }}
+                    className="opacity-0 group-hover:opacity-100 p-1.5 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-all duration-200"
+                    title={t('common.delete')}
+                >
+                    <Trash2 className="w-3 h-3" />
+                </button>
+            )}
         </div>
     );
 }

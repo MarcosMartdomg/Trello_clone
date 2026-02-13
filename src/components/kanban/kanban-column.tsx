@@ -235,7 +235,7 @@ export function KanbanColumnComponent({ column, isOverlay }: KanbanColumnProps) 
               className="text-sm font-semibold text-foreground truncate cursor-pointer hover:bg-accent/50 px-1 -ml-1 rounded transition-colors"
               title="Click to edit"
             >
-              {t(`board.${column.id}`) !== `board.${column.id}` ? t(`board.${column.id}`) : column.title}
+              {column.title}
             </h3>
           )}
 

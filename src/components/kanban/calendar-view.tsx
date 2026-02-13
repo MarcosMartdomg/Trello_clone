@@ -235,6 +235,7 @@ export function CalendarView() {
                     card={selectedCard}
                     columnTitle=""
                     isOpen={true}
+                    isReadOnly={true}
                     onClose={() => setSelectedCard(null)}
                 />
             )}

@@ -81,7 +81,7 @@ export function InboxView() {
                         </h1>
                     </div>
                     <p className="text-muted-foreground font-medium pl-[52px]">
-                        Centro de notificaciones e invitaciones del equipo.
+                        {t('sidebar.inboxDescription') || "Centro de notificaciones e invitaciones del equipo."}
                     </p>
                 </div>
 
@@ -262,7 +262,28 @@ function RecommendationCard({ card, onNavigate, t }: { card: any, onNavigate: ()
     )
 }
 
-function InvitationCard({ invite, onAccept, onDecline, t }: { invite: any, onAccept: () => void, onDecline: () => void, t: any }) {
+function InvitationCard({ invite, onAccept, onDecline, t }: { invite: any, onAccept: () => Promise<void>, onDecline: () => Promise<void>, t: any }) {
+    const [isAccepting, setIsAccepting] = useState(false)
+    const [isDeclining, setIsDeclining] = useState(false)
+
+    const handleAccept = async () => {
+        setIsAccepting(true)
+        try {
+            await onAccept()
+        } finally {
+            setIsAccepting(false)
+        }
+    }
+
+    const handleDecline = async () => {
+        setIsDeclining(true)
+        try {
+            await onDecline()
+        } finally {
+            setIsDeclining(false)
+        }
+    }
+
     return (
         <div className="flex flex-col md:flex-row items-center gap-8 p-8 bg-card border border-border/50 rounded-3xl shadow-sm transition-all hover:border-primary/20 hover:shadow-xl hover:shadow-primary/5">
             <div className="w-16 h-16 rounded-2xl bg-primary/5 flex items-center justify-center shrink-0 border border-border/50">
@@ -280,17 +301,27 @@ function InvitationCard({ invite, onAccept, onDecline, t }: { invite: any, onAcc
 
             <div className="flex items-center gap-3 w-full md:w-auto">
                 <button
-                    onClick={onDecline}
-                    className="flex-1 md:flex-none px-6 py-3 rounded-2xl bg-secondary text-muted-foreground font-bold text-sm hover:bg-destructive/10 hover:text-destructive border border-border/50 transition-all duration-300"
+                    onClick={handleDecline}
+                    disabled={isAccepting || isDeclining}
+                    className="flex-1 md:flex-none px-6 py-3 rounded-2xl bg-secondary text-muted-foreground font-bold text-sm hover:bg-destructive/10 hover:text-destructive border border-border/50 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                    <X className="w-4 h-4 inline mr-2" />
+                    {isDeclining ? (
+                        <span className="w-4 h-4 border-2 border-muted-foreground/30 border-t-muted-foreground rounded-full animate-spin inline-block mr-2" />
+                    ) : (
+                        <X className="w-4 h-4 inline mr-2" />
+                    )}
                     {t('members.decline')}
                 </button>
                 <button
-                    onClick={onAccept}
-                    className="flex-1 md:flex-none px-8 py-3 rounded-2xl bg-primary text-primary-foreground font-black text-sm hover:scale-105 active:scale-95 shadow-lg shadow-primary/20 transition-all duration-300"
+                    onClick={handleAccept}
+                    disabled={isAccepting || isDeclining}
+                    className="flex-1 md:flex-none px-8 py-3 rounded-2xl bg-primary text-primary-foreground font-black text-sm hover:scale-105 active:scale-95 shadow-lg shadow-primary/20 transition-all duration-300 disabled:opacity-50 disabled:scale-100 disabled:cursor-not-allowed"
                 >
-                    <Check className="w-4 h-4 inline mr-2" />
+                    {isAccepting ? (
+                        <span className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin inline-block mr-2" />
+                    ) : (
+                        <Check className="w-4 h-4 inline mr-2" />
+                    )}
                     {t('members.accept')}
                 </button>
             </div>

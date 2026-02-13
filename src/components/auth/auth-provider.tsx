@@ -28,10 +28,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         })
 
         // Listen for changes on auth state (login, logout, etc.)
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
             setSession(session)
             setUser(session?.user ?? null)
             setLoading(false)
+
+            if (event === 'SIGNED_OUT' || !session) {
+                useKanbanStore.getState().resetUserSession()
+            }
         })
 
         return () => subscription.unsubscribe()

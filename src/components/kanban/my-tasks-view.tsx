@@ -50,13 +50,19 @@ export function MyTasksView() {
     if (!user) return null
 
     // Get all tasks assigned to the current user OR in their personal boards
+    const { priorityFilter, tagFilter } = useKanbanStore()
+
     const tasksPerBoard = boards.map(board => {
         const isOwnerOfPersonalBoard = board.type === 'personal' && board.ownerId === user.id;
 
         const filteredTasks = board.columns.flatMap(col =>
-            col.cards.filter(card =>
-                isOwnerOfPersonalBoard || card.members?.some(m => m.id === user.id)
-            ).map(card => ({
+            col.cards.filter(card => {
+                const isAssigned = isOwnerOfPersonalBoard || card.members?.some(m => m.id === user.id);
+                const matchesPriority = priorityFilter.length === 0 || (card.priority && priorityFilter.includes(card.priority));
+                const matchesTags = tagFilter.length === 0 || card.labels?.some(l => tagFilter.includes(l.text));
+
+                return isAssigned && matchesPriority && matchesTags;
+            }).map(card => ({
                 ...card,
                 columnTitle: col.title
             }))
@@ -153,8 +159,11 @@ export function MyTasksView() {
                                             </div>
                                             {task.priority && (
                                                 <span className={cn(
-                                                    "px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider",
-                                                    task.priority === 'high' || task.priority === 'urgent' ? "bg-red-500 text-white" : "bg-primary/10 text-primary"
+                                                    "px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider border border-black/5",
+                                                    task.priority === 'urgent' && "bg-[#fce7f3] text-pink-700",
+                                                    task.priority === 'high' && "bg-[#ffedd5] text-orange-700",
+                                                    task.priority === 'medium' && "bg-[#fef3c7] text-amber-700",
+                                                    task.priority === 'low' && "bg-[#dbeafe] text-blue-700"
                                                 )}>
                                                     {t(`tags.${task.priority}`)}
                                                 </span>
@@ -209,6 +218,7 @@ export function MyTasksView() {
                     card={selectedCard}
                     columnTitle={selectedCard.columnTitle}
                     isOpen={!!selectedCard}
+                    isReadOnly={true}
                     onClose={() => {
                         setSelectedCard(null)
                         setSelectedBoardId(null)

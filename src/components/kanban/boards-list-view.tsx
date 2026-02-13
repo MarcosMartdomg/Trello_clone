@@ -117,9 +117,9 @@ function BoardCard({ board, onClick, isShared }: { board: any, onClick: () => vo
     };
 
     return (
-        <button
+        <div
             onClick={onClick}
-            className="group relative flex flex-col text-left p-6 bg-card border border-border/50 rounded-3xl transition-all duration-300 hover:shadow-2xl hover:shadow-primary/5 hover:-translate-y-1 hover:border-primary/20 overflow-hidden"
+            className="group relative flex flex-col text-left p-6 bg-card border border-border/50 rounded-3xl transition-all duration-300 hover:shadow-2xl hover:shadow-primary/5 hover:-translate-y-1 hover:border-primary/20 overflow-hidden cursor-pointer"
         >
             {/* Background Accent */}
             <div className={cn(
@@ -139,7 +139,7 @@ function BoardCard({ board, onClick, isShared }: { board: any, onClick: () => vo
                 <button
                     onClick={handleToggleFavorite}
                     className={cn(
-                        "p-2 rounded-xl transition-all duration-200 hover:scale-110",
+                        "p-2 rounded-xl transition-all duration-200 hover:scale-110 relative z-20",
                         board.isFavorite
                             ? "text-amber-400 hover:text-amber-500"
                             : "text-muted-foreground/30 hover:text-amber-400"
@@ -183,6 +183,6 @@ function BoardCard({ board, onClick, isShared }: { board: any, onClick: () => vo
                     <ArrowRight className="w-4 h-4" />
                 </div>
             </div>
-        </button>
+        </div>
     )
 }

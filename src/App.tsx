@@ -29,9 +29,9 @@ function App() {
     }
 
     return (
-        <div className="flex h-screen w-screen overflow-hidden bg-background text-foreground">
+        <div className="flex h-screen w-screen overflow-hidden bg-background text-foreground transition-colors duration-300 ease-in-out">
             <KanbanSidebar />
-            <main className="flex flex-col flex-1 overflow-hidden">
+            <main className="flex flex-col flex-1 overflow-hidden transition-colors duration-300 ease-in-out">
                 <BoardHeader />
                 {currentView === 'board' ? <KanbanBoard /> :
                     currentView === 'boards-list' ? <BoardsListView /> :

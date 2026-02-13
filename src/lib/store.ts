@@ -11,11 +11,13 @@ interface KanbanState {
     activeBoardId: string | null;
     searchQuery: string;
     tagFilter: string[];
+    priorityFilter: string[]; // Added priority filter
     language: 'es' | 'en';
     currentView: 'board' | 'my-tasks' | 'boards-list' | 'calendar' | 'inbox';
     isSearchOpen: boolean;
     invitations: any[];
     activeNotifications: any[];
+    processedInvitations: string[];
 
     // Actions
     setCurrentView: (view: 'board' | 'my-tasks' | 'boards-list' | 'calendar' | 'inbox') => void;
@@ -25,7 +27,8 @@ interface KanbanState {
     fetchBoards: (userId: string) => Promise<void>;
     createBoard: (name: string, userId: string, type?: 'personal' | 'shared') => Promise<void>;
     deleteBoard: (id: string) => Promise<void>;
-    leaveBoard: (id: string) => Promise<void>;
+    leaveBoard: (id: string, newOwnerId?: string) => Promise<void>;
+    transferOwnership: (boardId: string, newOwnerId: string) => Promise<void>;
     setActiveBoard: (id: string) => void;
     fetchInvitations: (userId: string) => Promise<void>;
     acceptInvitation: (boardId: string, userId: string) => Promise<void>;
@@ -52,6 +55,9 @@ interface KanbanState {
     deleteColumn: (columnId: string) => Promise<void>;
     setSearchQuery: (query: string) => void;
     toggleTagFilter: (tag: string) => void;
+    togglePriorityFilter: (priority: string) => void; // Added action
+    clearPriorityFilters: () => void; // Added action
+    clearTagFilters: () => void; // Added action
     setLanguage: (lang: 'es' | 'en') => void;
 }
 
@@ -62,11 +68,13 @@ export const useKanbanStore = create<KanbanState>()(
             activeBoardId: null,
             searchQuery: '',
             tagFilter: [],
+            priorityFilter: [], // Initialize priority filter
             language: 'es',
             currentView: 'board',
             isSearchOpen: false,
             invitations: [],
             activeNotifications: [],
+            processedInvitations: [],
 
             setCurrentView: (view: 'board' | 'my-tasks' | 'boards-list' | 'calendar' | 'inbox') => set({ currentView: view }),
             setSearchOpen: (isOpen: boolean) => set({ isSearchOpen: isOpen }),
@@ -76,17 +84,23 @@ export const useKanbanStore = create<KanbanState>()(
                 activeBoardId: null,
                 invitations: [],
                 activeNotifications: [],
+                processedInvitations: [],
                 currentView: 'boards-list'
             }),
 
             fetchBoards: async (userId: string) => {
                 try {
                     const data = await api.fetchBoards(userId);
-                    // Filter boards to only show those that are accepted by the user
-                    // Note: Supabase fetch needs to return board_members status or we assume accepted for now
-                    // if board_members status isn't joined in fetchBoards, we might need a separate check.
-                    // For now, let's assume we want to filter boards where the user is an 'accepted' member.
-                    const boards: Board[] = data.map((b: any) => ({
+
+                    // Filter boards to only show those that are owned by user or accepted
+                    const filteredData = data.filter((b: any) => {
+                        if (b.owner_id === userId) return true;
+                        return b.board_members?.some((bm: any) =>
+                            bm.user_id === userId && bm.status === 'accepted'
+                        );
+                    });
+
+                    const boards: Board[] = filteredData.map((b: any) => ({
                         id: b.id,
                         name: b.name,
                         ownerId: b.owner_id,
@@ -98,11 +112,10 @@ export const useKanbanStore = create<KanbanState>()(
                             { id: 'high', label: 'High', color: 'bg-orange-500' },
                             { id: 'urgent', label: 'Urgent', color: 'bg-red-500' },
                         ],
-                        columns: b.columns.sort((a: any, b: any) => a.position - b.position).map((col: any) => ({
+                        columns: (b.columns || []).sort((a: any, b: any) => a.position - b.position).map((col: any) => ({
                             id: col.id,
-                            title: col.title,
                             icon: col.icon,
-                            cards: col.cards.sort((a: any, b: any) => a.position - b.position).map((card: any) => ({
+                            cards: (col.cards || []).sort((a: any, b: any) => a.position - b.position).map((card: any) => ({
                                 ...card,
                                 checklist: Array.isArray(card.checklist) ? card.checklist : [],
                                 labels: Array.isArray(card.labels) ? card.labels : [],
@@ -126,7 +139,7 @@ export const useKanbanStore = create<KanbanState>()(
                                 })) : []
                             }))
                         })),
-                        members: b.board_members.map((bm: any) => ({
+                        members: (b.board_members || []).map((bm: any) => ({
                             id: bm.user_id,
                             name: bm.profiles?.full_name || 'Member',
                             avatar: bm.profiles?.full_name?.[0]?.toUpperCase() || 'U',
@@ -171,27 +184,88 @@ export const useKanbanStore = create<KanbanState>()(
                 }
             },
 
-            leaveBoard: async (id: string) => {
+            leaveBoard: async (id: string, newOwnerId?: string) => {
+                const user = (await supabase.auth.getUser()).data.user;
+                if (!user) return;
+
+                const isActive = get().activeBoardId === id;
+                const previousBoards = get().boards;
+                const boardToLeave = previousBoards.find(b => b.id === id);
+
+                // Detect if user is the sole owner AND sole member
+                const isSoleOwnerMember = boardToLeave &&
+                    boardToLeave.ownerId === user.id &&
+                    (boardToLeave.members || []).length <= 1;
+
+                // 1. Optimistic UI update: Remove board immediately
+                set((state) => {
+                    const filteredBoards = state.boards.filter(b => b.id !== id);
+                    return {
+                        boards: filteredBoards,
+                        activeBoardId: isActive
+                            ? (filteredBoards.length > 0 ? filteredBoards[0].id : null)
+                            : state.activeBoardId,
+                        currentView: isActive ? 'boards-list' : state.currentView
+                    };
+                });
+
                 try {
-                    const user = (await supabase.auth.getUser()).data.user;
-                    if (!user) return;
+                    // 2. Perform API operations
+                    if (isSoleOwnerMember) {
+                        // CASE A: Sole owner/member -> DELETE board
+                        await api.deleteBoard(id);
 
-                    // Notify others before leaving if possible
-                    await api.createNotification(id, `notificationMemberLeft`);
+                        get().addNotification({
+                            id: `delete-success-${id}-${Date.now()}`,
+                            type: 'system',
+                            message: 'notificationDeletedBoardSuccess'
+                        });
+                    } else {
+                        // CASE B: Shared board -> LEAVE logic
+                        // Create notifications while still having full member access
+                        await api.createNotification(id, `notificationMemberLeft`);
 
-                    await api.removeBoardMember(id, user.id);
+                        // Transfer first if requested (while still having permissions)
+                        if (newOwnerId && boardToLeave?.ownerId === user.id) {
+                            await api.createNotification(id, `notificationOwnerChanged`);
+                            await api.transferBoardOwnership(id, newOwnerId);
+                        }
 
-                    set((state) => {
-                        const newBoards = state.boards.filter(b => b.id !== id);
-                        return {
-                            boards: newBoards,
-                            activeBoardId: state.activeBoardId === id
-                                ? (newBoards.length > 0 ? newBoards[0].id : null)
-                                : state.activeBoardId
-                        };
-                    });
+                        // Finally remove self (loses permissions after this)
+                        await api.removeBoardMember(id, user.id);
+
+                        get().addNotification({
+                            id: `leave-success-${id}-${Date.now()}`,
+                            type: 'system',
+                            message: 'notificationLeftBoardSuccess'
+                        });
+                    }
+
+                    // 3. Final synchronization
+                    await get().fetchBoards(user.id);
                 } catch (error) {
-                    console.error("Store: Error leaving board", error);
+                    console.error("Store: Error leaving/deleting board, rolling back", error);
+                    // Rollback if something went wrong
+                    set({ boards: previousBoards });
+                    if (isActive) {
+                        set({ activeBoardId: id, currentView: 'board' });
+                    }
+                    // Inform user of failure
+                    get().addNotification({
+                        id: `error-leave-${id}-${Date.now()}`,
+                        type: 'system',
+                        message: 'board.errorLeaving'
+                    });
+                }
+            },
+
+            transferOwnership: async (boardId: string, newOwnerId: string) => {
+                try {
+                    await api.transferBoardOwnership(boardId, newOwnerId);
+                    const user = (await supabase.auth.getUser()).data.user;
+                    if (user) await get().fetchBoards(user.id);
+                } catch (error) {
+                    console.error("Store: Error transferring ownership", error);
                 }
             },
 
@@ -199,10 +273,16 @@ export const useKanbanStore = create<KanbanState>()(
                 try {
                     const nextInvitations = await api.fetchInvitations(userId);
                     const currentInvitations = get().invitations;
+                    const processedIds = get().processedInvitations;
+                    const activeNotifs = get().activeNotifications;
 
                     // Detect new invitations to show toasts
                     nextInvitations.forEach((invite: any) => {
-                        const isNew = !currentInvitations.find((c: any) => c.id === invite.id);
+                        // Skip if already processed or already has a notification or is already in current local state
+                        const isProcessed = processedIds.includes(invite.id);
+                        const hasNotification = activeNotifs.some((n: any) => n.id === `invite-${invite.id}`);
+                        const isNew = !currentInvitations.find((c: any) => c.id === invite.id) && !isProcessed && !hasNotification;
+
                         if (isNew) {
                             get().addNotification({
                                 id: `invite-${invite.id}`,
@@ -214,28 +294,82 @@ export const useKanbanStore = create<KanbanState>()(
                         }
                     });
 
-                    set({ invitations: nextInvitations });
+                    // Update state, filtering out anything currently being processed
+                    set({
+                        invitations: nextInvitations.filter((i: any) => !processedIds.includes(i.id))
+                    });
                 } catch (error) {
                     console.error("Store: Error fetching invitations", error);
                 }
             },
 
             acceptInvitation: async (boardId: string, userId: string) => {
+                const currentInvite = get().invitations.find(i => i.board_id === boardId && i.user_id === userId);
+
+                // Optimistic Local State Removal & Registry Entry
+                if (currentInvite) {
+                    set(state => ({
+                        invitations: state.invitations.filter(i => i.id !== currentInvite.id),
+                        processedInvitations: [...state.processedInvitations, currentInvite.id]
+                    }));
+                    get().removeNotification(`invite-${currentInvite.id}`);
+                }
+
                 try {
                     await api.updateInvitationStatus(boardId, userId, 'accepted');
+
+                    // Refresh state to confirm
                     await get().fetchInvitations(userId);
                     await get().fetchBoards(userId);
+
+                    // Success feedback
+                    const board = get().boards.find(b => b.id === boardId);
+                    if (board) {
+                        get().addNotification({
+                            id: `joined-${boardId}-${Date.now()}`, // Unique ID to prevent overlaps
+                            type: 'system',
+                            boardName: board.name,
+                            userId: userId,
+                            message: `notificationNewBoardJoined`
+                        });
+                    }
                 } catch (error) {
                     console.error("Store: Error accepting invitation", error);
+                    // Error feedback
+                    get().addNotification({
+                        id: `error-accept-${boardId}-${Date.now()}`,
+                        type: 'system',
+                        message: `members.errorAccepting`
+                    });
+                    // Rollback if needed, though fetchInvitations will recover state
+                    await get().fetchInvitations(userId);
                 }
             },
 
             declineInvitation: async (boardId: string, userId: string) => {
+                const currentInvite = get().invitations.find(i => i.board_id === boardId && i.user_id === userId);
+
+                // Optimistic Local State Removal & Registry Entry
+                if (currentInvite) {
+                    set(state => ({
+                        invitations: state.invitations.filter(i => i.id !== currentInvite.id),
+                        processedInvitations: [...state.processedInvitations, currentInvite.id]
+                    }));
+                    get().removeNotification(`invite-${currentInvite.id}`);
+                }
+
                 try {
                     await api.updateInvitationStatus(boardId, userId, 'declined');
                     await get().fetchInvitations(userId);
                 } catch (error) {
                     console.error("Store: Error declining invitation", error);
+                    // Error feedback
+                    get().addNotification({
+                        id: `error-decline-${boardId}-${Date.now()}`,
+                        type: 'system',
+                        message: `members.errorDeclining` // I should add this translation if not there, but for now using generic
+                    });
+                    await get().fetchInvitations(userId);
                 }
             },
 
@@ -261,6 +395,12 @@ export const useKanbanStore = create<KanbanState>()(
                     // In a real app we'd fetch the user's name/avatar. For now, just re-fetch boards.
                     const user = (await supabase.auth.getUser()).data.user;
                     if (user) await get().fetchBoards(user.id);
+
+                    get().addNotification({
+                        id: `invite-sent-${userId}-${Date.now()}`,
+                        type: 'system',
+                        message: 'notificationInviteSent'
+                    });
                 } catch (error) {
                     console.error("Store: Error adding member", error);
                 }
@@ -514,6 +654,20 @@ export const useKanbanStore = create<KanbanState>()(
                             : [...state.tagFilter, tag],
                     };
                 }),
+
+            togglePriorityFilter: (priority: string) =>
+                set((state) => {
+                    const exists = state.priorityFilter.includes(priority);
+                    return {
+                        priorityFilter: exists
+                            ? state.priorityFilter.filter((p) => p !== priority)
+                            : [...state.priorityFilter, priority],
+                    };
+                }),
+
+            clearPriorityFilters: () => set({ priorityFilter: [] }),
+
+            clearTagFilters: () => set({ tagFilter: [] }),
 
             setLanguage: (lang: 'es' | 'en') => set({ language: lang }),
         }),
