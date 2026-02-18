@@ -222,7 +222,7 @@ export function CalendarView() {
                                             ))}
                                             {dayCards.length > 3 && (
                                                 <div className="text-xs text-muted-foreground text-center py-1">
-                                                    +{dayCards.length - 3} más
+                                                    +{dayCards.length - 3} {t('calendar.more')}
                                                 </div>
                                             )}
                                         </div>

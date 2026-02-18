@@ -31,23 +31,22 @@ export function CreateBoardModal({ isOpen, onClose, onCreate }: CreateBoardModal
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="sm:max-w-[425px]">
+            <DialogContent className="sm:max-w-[425px] rounded-2xl">
                 <form onSubmit={handleSubmit}>
                     <DialogHeader>
                         <DialogTitle>{t('board.createTitle')}</DialogTitle>
-                        <DialogDescription>
-                            {t('board.boardName')}
-                        </DialogDescription>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
                         <div className="grid gap-2">
-                            <Label htmlFor="name">{t('board.boardName')}</Label>
+                            <Label htmlFor="name" className="text-xs font-bold text-muted-foreground uppercase tracking-wider ml-1">
+                                {t('board.boardName')}
+                            </Label>
                             <Input
                                 id="name"
                                 value={name}
                                 onChange={(e) => setName(e.target.value)}
                                 placeholder={t('board.placeholder')}
-                                className="bg-secondary/30 border-border/40 focus-visible:ring-primary/20 rounded-xl"
+                                className="bg-secondary/30 border-border/40 focus-visible:ring-primary/20 rounded-xl h-11"
                                 autoFocus
                             />
                         </div>
@@ -84,11 +83,11 @@ export function CreateBoardModal({ isOpen, onClose, onCreate }: CreateBoardModal
                             </div>
                         </div>
                     </div>
-                    <DialogFooter>
-                        <Button type="button" variant="outline" onClick={onClose}>
+                    <DialogFooter className="gap-2 sm:gap-0">
+                        <Button type="button" variant="ghost" onClick={onClose} className="rounded-xl">
                             {t('common.cancel')}
                         </Button>
-                        <Button type="submit" className="w-full h-11 rounded-xl font-bold bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all" disabled={!name.trim()}>
+                        <Button type="submit" className="h-11 rounded-xl font-bold bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all" disabled={!name.trim()}>
                             {t('common.create')}
                         </Button>
                     </DialogFooter>

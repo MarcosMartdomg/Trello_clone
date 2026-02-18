@@ -28,6 +28,7 @@ import { ConfirmLeaveModal } from "./confirm-leave-modal"
 import { UserProfileModal } from "@/components/auth/user-profile-modal"
 import { useTranslation } from "@/hooks/use-translation"
 import { useNavigate } from "react-router-dom"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
 export function KanbanSidebar() {
     const navigate = useNavigate()
@@ -253,11 +254,16 @@ export function KanbanSidebar() {
                         onClick={() => setIsProfileModalOpen(true)}
                         className="flex items-center gap-3 w-full px-2 py-2 mb-2 bg-sidebar-accent/30 rounded-xl border border-white/5 hover:bg-sidebar-accent/50 hover:border-white/10 transition-all duration-200 group text-left"
                     >
-                        <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-slate-900 text-[10px] font-black text-white shadow-lg transition-transform group-hover:scale-105">
-                            {userInitial}
-                        </div>
+                        <Avatar className="w-9 h-9 rounded-lg border-2 border-background shadow-lg transition-transform group-hover:scale-105">
+                            <AvatarImage src={user.user_metadata?.avatar_url} />
+                            <AvatarFallback className="bg-slate-900 text-[10px] font-black text-white rounded-lg">
+                                {user.user_metadata?.full_name?.[0]?.toUpperCase() || user.email?.[0]?.toUpperCase() || "U"}
+                            </AvatarFallback>
+                        </Avatar>
                         <div className="flex-1 min-w-0">
-                            <p className="text-[10px] font-black text-foreground uppercase tracking-wider truncate">{t('sidebar.user')}</p>
+                            <p className="text-[10px] font-black text-foreground uppercase tracking-wider truncate">
+                                {user.user_metadata?.full_name || t('sidebar.user')}
+                            </p>
                             <p className="text-[10px] text-muted-foreground truncate group-hover:text-primary transition-colors">{user.email}</p>
                         </div>
                     </button>
