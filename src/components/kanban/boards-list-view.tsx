@@ -75,11 +75,11 @@ export function BoardsListView() {
                 {/* Shared Boards */}
                 <section className="space-y-6">
                     <div className="flex items-center gap-3 px-1">
-                        <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center">
-                            <Users className="w-4 h-4 text-blue-500" />
+                        <div className="w-8 h-8 rounded-lg bg-slate-900/10 flex items-center justify-center">
+                            <Users className="w-4 h-4 text-slate-900" />
                         </div>
                         <h2 className="text-xl font-bold tracking-tight">{t('sidebar.sharedBoards')}</h2>
-                        <span className="text-xs font-black bg-blue-500 text-white px-2 py-0.5 rounded-full">
+                        <span className="text-xs font-black bg-slate-900 text-white px-2 py-0.5 rounded-full">
                             {sharedBoards.length}
                         </span>
                     </div>
@@ -124,7 +124,7 @@ function BoardCard({ board, onClick, isShared }: { board: any, onClick: () => vo
             {/* Background Accent */}
             <div className={cn(
                 "absolute top-0 right-0 w-32 h-32 -mr-8 -mt-8 opacity-[0.03] transition-transform duration-500 group-hover:scale-110 group-hover:rotate-12",
-                isShared ? "text-blue-500" : "text-primary"
+                "text-slate-900"
             )}>
                 {isShared ? <Users className="w-full h-full" /> : <Layout className="w-full h-full" />}
             </div>
@@ -132,7 +132,7 @@ function BoardCard({ board, onClick, isShared }: { board: any, onClick: () => vo
             <div className="flex items-start justify-between mb-8">
                 <div className={cn(
                     "w-12 h-12 rounded-2xl flex items-center justify-center mb-4 transition-colors",
-                    isShared ? "bg-blue-500/10 text-blue-500" : "bg-primary/10 text-primary"
+                    "bg-slate-900/10 text-slate-900"
                 )}>
                     {isShared ? <Users className="w-6 h-6" /> : <Layout className="w-6 h-6" />}
                 </div>

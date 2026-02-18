@@ -7,11 +7,15 @@ import { ThemeProvider } from './components/theme-provider'
 import { AuthProvider } from './components/auth/auth-provider'
 import { Toaster } from 'sonner'
 
+import { BrowserRouter } from 'react-router-dom'
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
     <React.StrictMode>
         <ThemeProvider attribute="class" defaultTheme="dark" storageKey="vite-ui-theme">
             <AuthProvider>
-                <App />
+                <BrowserRouter>
+                    <App />
+                </BrowserRouter>
                 <Toaster position="top-center" richColors />
             </AuthProvider>
         </ThemeProvider>

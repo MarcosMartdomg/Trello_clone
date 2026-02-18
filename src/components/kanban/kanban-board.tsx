@@ -285,7 +285,7 @@ export function KanbanBoard() {
             <CreateBoardModal
                 isOpen={isCreateModalOpen}
                 onClose={() => setIsCreateModalOpen(false)}
-                onCreate={(name) => createBoard(name)}
+                onCreate={(name) => createBoard(name, user!.id)}
             />
         </div>
     )

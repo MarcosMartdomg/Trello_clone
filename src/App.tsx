@@ -7,14 +7,15 @@ import { CalendarView } from "@/components/kanban/calendar-view"
 import { InboxView } from "@/components/kanban/inbox-view"
 import { NotificationToaster } from "@/components/kanban/notification-toaster"
 import { GlobalSearch } from "@/components/kanban/global-search"
+import { Routes, Route, Navigate } from "react-router-dom"
 import { useAuth } from "@/components/auth/auth-provider"
 import { AuthScreen } from "@/components/auth/auth-screen"
+import { LandingPage } from "@/components/landing/landing-page"
 import { useKanbanStore } from "@/lib/store"
 import { Loader2 } from "lucide-react"
 
-function App() {
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
     const { user, loading } = useAuth()
-    const { currentView } = useKanbanStore()
 
     if (loading) {
         return (
@@ -25,8 +26,14 @@ function App() {
     }
 
     if (!user) {
-        return <AuthScreen />
+        return <Navigate to="/auth" replace />
     }
+
+    return <>{children}</>
+}
+
+function KanbanDashboard() {
+    const { currentView } = useKanbanStore()
 
     return (
         <div className="flex h-screen w-screen overflow-hidden bg-background text-foreground transition-colors duration-300 ease-in-out">
@@ -42,6 +49,25 @@ function App() {
             <GlobalSearch />
             <NotificationToaster />
         </div>
+    )
+}
+
+function App() {
+    return (
+        <Routes>
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/auth" element={<AuthScreen />} />
+            <Route
+                path="/dashboard"
+                element={
+                    <ProtectedRoute>
+                        <KanbanDashboard />
+                    </ProtectedRoute>
+                }
+            />
+            {/* Redirect any other route to home */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
     )
 }
 

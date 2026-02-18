@@ -11,7 +11,7 @@ import { CardDetailsModal } from "./card-details-modal"
 import { useTranslation } from "@/hooks/use-translation"
 
 const priorityDot: Record<string, string> = {
-  low: "bg-blue-400",
+  low: "bg-slate-400",
   medium: "bg-amber-400",
   high: "bg-orange-500",
   urgent: "bg-red-500",

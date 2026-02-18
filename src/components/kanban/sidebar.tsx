@@ -27,8 +27,10 @@ import { ConfirmDeleteModal } from "./confirm-delete-modal"
 import { ConfirmLeaveModal } from "./confirm-leave-modal"
 import { UserProfileModal } from "@/components/auth/user-profile-modal"
 import { useTranslation } from "@/hooks/use-translation"
+import { useNavigate } from "react-router-dom"
 
 export function KanbanSidebar() {
+    const navigate = useNavigate()
     const [collapsed, setCollapsed] = useState(false)
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
     const [isProfileModalOpen, setIsProfileModalOpen] = useState(false)
@@ -251,7 +253,7 @@ export function KanbanSidebar() {
                         onClick={() => setIsProfileModalOpen(true)}
                         className="flex items-center gap-3 w-full px-2 py-2 mb-2 bg-sidebar-accent/30 rounded-xl border border-white/5 hover:bg-sidebar-accent/50 hover:border-white/10 transition-all duration-200 group text-left"
                     >
-                        <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-blue-600 text-[10px] font-black text-white shadow-lg shadow-primary/20 group-hover:scale-105 transition-transform">
+                        <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-slate-900 text-[10px] font-black text-white shadow-lg transition-transform group-hover:scale-105">
                             {userInitial}
                         </div>
                         <div className="flex-1 min-w-0">
@@ -263,7 +265,10 @@ export function KanbanSidebar() {
 
                 <button
                     type="button"
-                    onClick={() => signOut()}
+                    onClick={() => {
+                        signOut()
+                        navigate("/")
+                    }}
                     className="flex items-center gap-3 w-full rounded-lg px-3 py-2 text-sm text-red-400 hover:bg-red-400/10 hover:text-red-300 transition-all duration-150"
                 >
                     <LogOut className="w-4 h-4 shrink-0" />

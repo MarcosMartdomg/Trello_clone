@@ -109,7 +109,7 @@ export function CalendarView() {
             case 'medium':
                 return 'bg-amber-400'
             case 'low':
-                return 'bg-blue-400'
+                return 'bg-slate-400'
             default:
                 return 'bg-gray-400'
         }

@@ -68,7 +68,7 @@ export function UserProfileModal({ open, onOpenChange }: UserProfileModalProps) 
             onOpenChange(val)
         }}>
             <DialogContent className="sm:max-w-[440px] bg-card/40 backdrop-blur-3xl border-white/10 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.6)] rounded-[32px] overflow-hidden p-0 gap-0">
-                <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-primary via-blue-500 to-primary/50" />
+                <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-slate-950 via-slate-500 to-slate-950" />
 
                 <div className="p-8 space-y-6">
                     <DialogHeader className="space-y-4">
@@ -135,7 +135,7 @@ export function UserProfileModal({ open, onOpenChange }: UserProfileModalProps) 
                                 <Button
                                     disabled={newEmail === user?.email && !newPassword}
                                     onClick={() => setStep("confirm-1")}
-                                    className="w-full h-12 rounded-2xl bg-gradient-to-br from-primary to-blue-600 hover:from-primary/90 hover:to-blue-600/90 text-white font-bold shadow-lg shadow-primary/20 transition-all border-0"
+                                    className="w-full h-12 rounded-2xl bg-black hover:bg-slate-900 text-white font-bold shadow-lg shadow-black/20 transition-all border-0"
                                 >
                                     {t('profile.saveChanges')}
                                 </Button>

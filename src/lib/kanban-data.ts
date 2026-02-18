@@ -69,16 +69,16 @@ export interface Board {
 }
 
 export const mockMembers: Member[] = [
-  { id: "m1", name: "Alex Rivera", avatar: "AR", color: "bg-blue-500" },
-  { id: "m2", name: "Sofia Chen", avatar: "SC", color: "bg-emerald-500" },
-  { id: "m3", name: "Jordan Smith", avatar: "JS", color: "bg-amber-500" },
+  { id: "m1", name: "Alex Rivera", avatar: "AR", color: "bg-slate-900" },
+  { id: "m2", name: "Sofia Chen", avatar: "SC", color: "bg-slate-800" },
+  { id: "m3", name: "Jordan Smith", avatar: "JS", color: "bg-slate-700" },
 ]
 
 const defaultPriorities: Priority[] = [
-  { id: 'low', label: 'Low', color: 'bg-blue-400' },
-  { id: 'medium', label: 'Medium', color: 'bg-amber-400' },
-  { id: 'high', label: 'High', color: 'bg-orange-500' },
-  { id: 'urgent', label: 'Urgent', color: 'bg-red-500' },
+  { id: 'low', label: 'Low', color: 'bg-slate-200' },
+  { id: 'medium', label: 'Medium', color: 'bg-slate-400' },
+  { id: 'high', label: 'High', color: 'bg-slate-600' },
+  { id: 'urgent', label: 'Urgent', color: 'bg-slate-900' },
 ]
 
 export const mockBoards: Board[] = [
@@ -138,7 +138,7 @@ export const mockBoards: Board[] = [
             id: "c4",
             title: "Initial Setup",
             description: "Repo created and basic CI/CD configured.",
-            labels: [{ id: "l4", text: "DevOps", color: "bg-orange-500/10 text-orange-400" }],
+            labels: [{ id: "l4", text: "DevOps", color: "bg-slate-900/10 text-slate-800" }],
             checklist: [],
             members: [mockMembers[0]],
             priority: "low",

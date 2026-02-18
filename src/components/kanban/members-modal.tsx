@@ -64,7 +64,7 @@ export function MembersModal({ isOpen, onClose }: MembersModalProps) {
                 return
             }
             try {
-                const profiles = await api.fetchProfiles(currentBoard.members.map(m => m.id))
+                const profiles = await api.fetchProfiles(currentBoard.members.map(m => m.id).join(','))
                 setMemberProfiles(profiles)
             } catch (error) {
                 console.error("MembersModal: Load profiles error", error)
@@ -90,7 +90,7 @@ export function MembersModal({ isOpen, onClose }: MembersModalProps) {
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
             <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden bg-background/95 backdrop-blur-xl border-white/10 shadow-2xl rounded-3xl">
-                <DialogHeader className="px-8 pt-8 pb-6 bg-gradient-to-br from-primary/5 to-secondary/5 border-b border-border/50">
+                <DialogHeader className="px-8 pt-8 pb-6 bg-slate-900/5 border-b border-border/50">
                     <div className="flex items-center gap-3 mb-2">
                         <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-primary/10 text-primary">
                             <Users className="w-5 h-5" />
@@ -119,8 +119,8 @@ export function MembersModal({ isOpen, onClose }: MembersModalProps) {
                                 return (
                                     <div key={member.id} className="flex items-center justify-between group p-3 rounded-2xl bg-secondary/20 border border-border/40 hover:bg-secondary/30 transition-all duration-200">
                                         <div className="flex items-center gap-3">
-                                            <Avatar className="h-9 w-9 border-2 border-background ring-2 ring-primary/10 transition-transform group-hover:scale-105">
-                                                <AvatarFallback className={cn("text-[10px] font-black text-white shadow-inner bg-primary/20 text-primary")}>
+                                            <Avatar className="h-9 w-9 border-2 border-background ring-2 ring-slate-900/10 transition-transform group-hover:scale-105">
+                                                <AvatarFallback className={cn("text-[10px] font-black text-white shadow-inner bg-slate-900")}>
                                                     {member.full_name?.[0]?.toUpperCase() || 'U'}
                                                 </AvatarFallback>
                                             </Avatar>
