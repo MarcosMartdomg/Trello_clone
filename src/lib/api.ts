@@ -70,7 +70,12 @@ export const api = {
             .eq('owner_id', userId);
 
         if (ownedError) {
-            console.error("api: fetchBoards owned error:", ownedError);
+            console.error("api: fetchBoards owned error:", {
+                message: ownedError.message,
+                details: ownedError.details,
+                hint: ownedError.hint,
+                code: ownedError.code
+            });
             throw ownedError;
         }
 
@@ -140,6 +145,14 @@ export const api = {
         if (error) throw error;
     },
 
+    transferOwnership: async (boardId: string, newOwnerId: string) => {
+        const { error } = await supabase
+            .from('boards')
+            .update({ owner_id: newOwnerId })
+            .eq('id', boardId);
+        if (error) throw error;
+    },
+
     updateBoard: async (id: string, updates: any) => {
         const { error } = await supabase.from('boards').update(updates).eq('id', id);
         if (error) throw error;
@@ -176,26 +189,52 @@ export const api = {
 
     // Cards
     createCard: async (columnId: string, title: string, position: number) => {
+        const payload = {
+            column_id: columnId,
+            title: title || 'New Card',
+            position: position,
+            description: '',
+            priority: 'medium',
+            labels: [],
+            checklist: []
+        };
+
+        console.log("api: creating card with payload", payload);
+
         const { data, error } = await supabase
             .from('cards')
-            .insert([{
-                column_id: columnId,
-                title,
-                position,
-                description: '',
-                priority: 'medium',
-                labels: [],
-                checklist: []
-            }])
-            .select()
-            .single();
-        if (error) throw error;
-        return data;
+            .insert([payload])
+            .select();
+
+        if (error) {
+            console.error("api: createCard error:", {
+                message: error.message,
+                details: error.details,
+                hint: error.hint,
+                code: error.code
+            });
+            throw error;
+        }
+        return data?.[0];
     },
 
     updateCard: async (id: string, updates: any) => {
-        const { error } = await supabase.from('cards').update(updates).eq('id', id);
-        if (error) throw error;
+        // Redundancy handling for labels/tags schema mismatch
+        const finalUpdates = { ...updates };
+        if (updates.labels && !updates.tags) finalUpdates.tags = updates.labels;
+        if (updates.tags && !updates.labels) finalUpdates.labels = updates.tags;
+
+        console.log(`api: updating card ${id} with:`, finalUpdates);
+        const { error } = await supabase.from('cards').update(finalUpdates).eq('id', id);
+        if (error) {
+            console.error("api: updateCard error:", {
+                message: error.message,
+                details: error.details,
+                hint: error.hint,
+                code: error.code
+            });
+            throw error;
+        }
     },
 
     deleteCard: async (id: string) => {
@@ -253,12 +292,27 @@ export const api = {
         }
     },
 
+    inviteMember: async (boardId: string, userId: string) => {
+        return api.addBoardMember(boardId, userId);
+    },
+
     removeBoardMember: async (boardId: string, userId: string) => {
         const { error } = await supabase
             .from('board_members')
             .delete()
             .match({ board_id: boardId, user_id: userId });
         if (error) throw error;
+    },
+
+    removeMember: async (boardId: string, userId: string) => {
+        return api.removeBoardMember(boardId, userId);
+    },
+
+    leaveBoard: async (boardId: string, userId: string, newOwnerId?: string) => {
+        if (newOwnerId) {
+            await api.transferBoardOwnership(boardId, newOwnerId);
+        }
+        await api.removeBoardMember(boardId, userId);
     },
 
     updateInvitationStatus: async (boardId: string, userId: string, status: 'accepted' | 'declined') => {

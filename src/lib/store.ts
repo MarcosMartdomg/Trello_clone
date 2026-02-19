@@ -103,22 +103,34 @@ export const useKanbanStore = create<KanbanState>()(
                             id: c.id,
                             title: c.title,
                             boardId: c.board_id,
-                            order: c.order_index,
+                            order: c.position,
                             cards: c.cards?.map((card: any) => ({
                                 id: card.id,
                                 title: card.title,
                                 description: card.description,
                                 columnId: card.column_id,
-                                order: card.order_index,
+                                order: card.position,
                                 priority: card.priority,
-                                tags: card.tags || [],
+                                labels: card.labels || card.tags || [],
                                 color: card.color,
-                                members: card.card_members?.map((cm: any) => cm.user_id) || [],
+                                due_date: card.due_date,
+                                checklist: card.checklist || [],
+                                members: card.card_members?.map((cm: any) => ({
+                                    id: cm.user_id,
+                                    name: cm.profiles?.full_name || 'Member',
+                                    avatar: cm.profiles?.avatar_url || '',
+                                    color: 'bg-primary/10' // Default color for avatar background
+                                })) || [],
                                 activity: card.activities?.map((a: any) => ({
                                     id: a.id,
-                                    text: a.log_text,
-                                    type: a.log_type,
-                                    timestamp: a.created_at
+                                    text: a.log_text || '',
+                                    type: a.log_type || 'system',
+                                    timestamp: a.created_at,
+                                    user: a.profiles ? {
+                                        id: a.profiles.id,
+                                        name: a.profiles.full_name,
+                                        avatar: a.profiles.avatar_url
+                                    } : undefined
                                 })) || []
                             })).sort((a: any, b: any) => a.order - b.order) || []
                         })).sort((a: any, b: any) => a.order - b.order) || [],
@@ -277,8 +289,13 @@ export const useKanbanStore = create<KanbanState>()(
             },
 
             addCard: async (columnId, card) => {
+                const state = get();
+                const activeBoard = state.boards.find(b => b.id === state.activeBoardId);
+                const column = activeBoard?.columns.find(col => col.id === columnId);
+                const position = column?.cards.length || 0;
+
                 try {
-                    await api.createCard(columnId, card);
+                    await api.createCard(columnId, card.title || 'New Card', position);
                     const { user } = (await supabase.auth.getUser()).data;
                     if (user) await get().fetchBoards(user.id);
                 } catch (error) {
@@ -334,7 +351,9 @@ export const useKanbanStore = create<KanbanState>()(
                 try {
                     const boardId = get().activeBoardId;
                     if (!boardId) return;
-                    await api.createColumn(boardId, title);
+                    const activeBoard = get().boards.find(b => b.id === boardId);
+                    const position = activeBoard?.columns.length || 0;
+                    await api.createColumn(boardId, title, position);
                     const { user } = (await supabase.auth.getUser()).data;
                     if (user) await get().fetchBoards(user.id);
                 } catch (error) {

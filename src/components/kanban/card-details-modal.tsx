@@ -68,6 +68,11 @@ export function CardDetailsModal({ card, columnTitle, isOpen, onClose, isReadOnl
     const [newChecklistItem, setNewChecklistItem] = useState("")
     const [showChecklist, setShowChecklist] = useState(false)
 
+    // Labels state
+    const [newLabelName, setNewLabelName] = useState("")
+    const [selectedLabelColor, setSelectedLabelColor] = useState("bg-primary")
+    const [isOpenLabelPopover, setIsOpenLabelPopover] = useState(false)
+
     const activeBoard = boards.find(b => b.id === activeBoardId)
     const boardMembers = activeBoard?.members || []
 
@@ -184,6 +189,23 @@ export function CardDetailsModal({ card, columnTitle, isOpen, onClose, isReadOnl
             addCardMember(card.id, memberId)
         }
     }
+
+    const handleCreateLabel = () => {
+        if (!newLabelName.trim()) return;
+
+        const color = selectedLabelColor;
+        const colorClass = `${color}/20 ${color.replace('bg-', 'text-')} ring-1 ${color.replace('bg-', 'ring-')}/30`;
+        const newLabels = [...(card.labels || []), {
+            id: `custom-${Date.now()}`,
+            text: newLabelName.trim(),
+            color: colorClass
+        }];
+
+        updateCard(card.id, { labels: newLabels });
+        setNewLabelName("");
+        setSelectedLabelColor("bg-primary");
+        setIsOpenLabelPopover(false);
+    };
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -699,7 +721,7 @@ export function CardDetailsModal({ card, columnTitle, isOpen, onClose, isReadOnl
                                             })}
 
                                             {/* Custom Label Creator (Minimal) */}
-                                            <Popover>
+                                            <Popover open={isOpenLabelPopover} onOpenChange={setIsOpenLabelPopover}>
                                                 <PopoverTrigger asChild>
                                                     <Button variant="outline" className="w-full h-8 text-[9px] font-black uppercase tracking-widest border-dashed border-border/60 hover:border-primary/40 hover:bg-primary/5 transition-all rounded-xl mt-2">
                                                         <Plus className="w-3 h-3 mr-1.5" />
@@ -710,9 +732,15 @@ export function CardDetailsModal({ card, columnTitle, isOpen, onClose, isReadOnl
                                                     <div className="space-y-2">
                                                         <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">{t('board.labelName')}</label>
                                                         <Input
-                                                            id="new-label-name"
+                                                            value={newLabelName}
+                                                            onChange={(e) => setNewLabelName(e.target.value)}
                                                             placeholder="..."
                                                             className="h-9 text-xs bg-secondary/20 border-border/40 focus-visible:ring-primary/20 rounded-xl"
+                                                            onKeyDown={(e) => {
+                                                                if (e.key === 'Enter' && newLabelName.trim()) {
+                                                                    handleCreateLabel();
+                                                                }
+                                                            }}
                                                         />
                                                     </div>
                                                     <div className="space-y-2">
@@ -725,23 +753,24 @@ export function CardDetailsModal({ card, columnTitle, isOpen, onClose, isReadOnl
                                                             ].map(color => (
                                                                 <button
                                                                     key={color}
-                                                                    className={cn("w-full aspect-square rounded-lg transition-all hover:scale-110", color)}
-                                                                    onClick={() => {
-                                                                        const name = (document.getElementById('new-label-name') as HTMLInputElement)?.value;
-                                                                        if (!name) return;
-                                                                        const colorClass = `${color}/20 ${color.replace('bg-', 'text-')} ring-1 ${color.replace('bg-', 'ring-')}/30`;
-                                                                        const newLabels = [...(card.labels || []), {
-                                                                            id: `custom-${Date.now()}`,
-                                                                            text: name,
-                                                                            color: colorClass
-                                                                        }];
-                                                                        updateCard(card.id, { labels: newLabels });
-                                                                        (document.getElementById('new-label-name') as HTMLInputElement).value = '';
-                                                                    }}
+                                                                    type="button"
+                                                                    className={cn(
+                                                                        "w-full aspect-square rounded-lg transition-all hover:scale-110 border-2",
+                                                                        color,
+                                                                        selectedLabelColor === color ? "border-white shadow-lg scale-110" : "border-transparent"
+                                                                    )}
+                                                                    onClick={() => setSelectedLabelColor(color)}
                                                                 />
                                                             ))}
                                                         </div>
                                                     </div>
+                                                    <Button
+                                                        className="w-full h-9 rounded-xl font-bold text-xs mt-2"
+                                                        disabled={!newLabelName.trim()}
+                                                        onClick={handleCreateLabel}
+                                                    >
+                                                        {t('common.create')}
+                                                    </Button>
                                                 </PopoverContent>
                                             </Popover>
                                         </div>
