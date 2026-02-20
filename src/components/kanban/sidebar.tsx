@@ -158,10 +158,16 @@ export function KanbanSidebar() {
         }
     }
 
-    const handleLeaveBoard = (newOwnerId?: string) => {
+    const handleLeaveBoard = async (newOwnerId?: string) => {
         if (boardToLeave) {
-            leaveBoard(boardToLeave.id, newOwnerId)
-            setBoardToLeave(null)
+            try {
+                // We await the core logic, but we want the store to handle the state update optimistically if possible
+                await leaveBoard(boardToLeave.id, newOwnerId)
+                setBoardToLeave(null)
+            } catch (error) {
+                // Error is handled by the modal and store notifications
+                throw error
+            }
         }
     }
 
@@ -383,6 +389,7 @@ export function KanbanSidebar() {
                 onConfirm={handleLeaveBoard}
                 title={t('board.leaveTitle')}
                 description={t('board.leaveConfirm', { name: boardToLeave?.name || '' }) + ' ' + t('board.leaveWarning')}
+                boardId={boardToLeave?.id || ''}
             />
 
             <UserProfileModal

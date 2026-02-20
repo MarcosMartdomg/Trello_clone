@@ -47,7 +47,7 @@ interface CardDetailsModalProps {
 }
 
 export function CardDetailsModal({ card, columnTitle, isOpen, onClose, isReadOnly = false }: CardDetailsModalProps) {
-    const { updateCard, deleteCard, addCardMember, removeCardMember, boards, activeBoardId } = useKanbanStore()
+    const { updateCard, deleteCard, addCardMember, removeCardMember, loadCardActivities, boards, activeBoardId } = useKanbanStore()
     const [title, setTitle] = useState(card.title)
     const [description, setDescription] = useState(card.description)
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
@@ -83,8 +83,9 @@ export function CardDetailsModal({ card, columnTitle, isOpen, onClose, isReadOnl
             setDescription(card.description)
             setDate(card.due_date ? new Date(card.due_date) : undefined)
             setShowChecklist(Array.isArray(card.checklist) && card.checklist.length > 0)
+            loadCardActivities(card.id)
         }
-    }, [isOpen, card])
+    }, [isOpen, card.id, loadCardActivities])
 
     // ... (rest of effects)
 

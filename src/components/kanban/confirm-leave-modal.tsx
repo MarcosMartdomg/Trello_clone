@@ -21,9 +21,10 @@ import { AlertTriangle, User } from "lucide-react"
 interface ConfirmLeaveModalProps {
     isOpen: boolean
     onClose: () => void
-    onConfirm: (newOwnerId?: string) => void
+    onConfirm: (newOwnerId?: string) => Promise<void>
     title: string
     description: string
+    boardId: string
 }
 
 export function ConfirmLeaveModal({
@@ -32,6 +33,7 @@ export function ConfirmLeaveModal({
     onConfirm,
     title,
     description,
+    boardId,
 }: ConfirmLeaveModalProps) {
     const { t } = useTranslation()
     const { boards, activeBoardId } = useKanbanStore()
@@ -39,18 +41,20 @@ export function ConfirmLeaveModal({
     const [members, setMembers] = useState<any[]>([])
     const [newOwnerId, setNewOwnerId] = useState<string>("")
     const [isOwner, setIsOwner] = useState(false)
+    const [isLoading, setIsLoading] = useState(false)
+    const [error, setError] = useState<string | null>(null)
 
     useEffect(() => {
-        if (isOpen && activeBoardId && user) {
-            const currentBoard = boards.find(b => b.id === activeBoardId)
+        if (isOpen && boardId && user) {
+            const currentBoard = boards.find(b => b.id === boardId)
             if (currentBoard) {
                 // Determine if current user is owner
                 const userIsOwner = currentBoard.ownerId === user.id
                 setIsOwner(userIsOwner)
 
-                // Get other eligible members (excluding current user/owner)
+                // Get other eligible members (excluding current user/owner and only accepted members)
                 // Filter ensuring we have valid users to transfer to
-                const otherMembers = currentBoard.members.filter(m => m.id !== user.id)
+                const otherMembers = currentBoard.members.filter(m => m.id !== user.id && m.status === 'accepted')
                 setMembers(otherMembers)
 
                 // Pre-select first member if available
@@ -60,12 +64,23 @@ export function ConfirmLeaveModal({
                     setNewOwnerId("")
                 }
             }
+            setError(null)
+            setIsLoading(false)
         }
-    }, [isOpen, activeBoardId, boards, user])
+    }, [isOpen, boardId, boards, user])
 
-    const handleConfirm = () => {
+    const handleConfirm = async () => {
         if (isOwner && members.length > 0 && !newOwnerId) return
-        onConfirm(newOwnerId || undefined)
+
+        setIsLoading(true)
+        setError(null)
+        try {
+            await onConfirm(newOwnerId || undefined)
+        } catch (err: any) {
+            console.error("Modal: Error during confirm", err)
+            setError(err.message || t('common.error'))
+            setIsLoading(false)
+        }
     }
 
     // Determine the content based on owner status and member count
@@ -98,6 +113,13 @@ export function ConfirmLeaveModal({
                     <AlertDialogDescription className="font-medium text-muted-foreground/80">
                         {description}
                     </AlertDialogDescription>
+
+                    {error && (
+                        <Alert variant="error" className="bg-red-500/5 border-red-500/20">
+                            <AlertTriangle className="h-4 w-4" />
+                            <AlertDescription>{error}</AlertDescription>
+                        </Alert>
+                    )}
                 </div>
             )
         }
@@ -129,6 +151,13 @@ export function ConfirmLeaveModal({
                         </SelectContent>
                     </Select>
                 </div>
+
+                {error && (
+                    <Alert variant="error" className="bg-red-500/5 border-red-500/20">
+                        <AlertTriangle className="h-4 w-4" />
+                        <AlertDescription>{error}</AlertDescription>
+                    </Alert>
+                )}
             </div>
         )
     }
@@ -148,11 +177,19 @@ export function ConfirmLeaveModal({
                         {t('common.cancel')}
                     </AlertDialogCancel>
                     <AlertDialogAction
-                        onClick={handleConfirm}
-                        disabled={isOwner && members.length > 0 && !newOwnerId}
+                        onClick={(e) => {
+                            e.preventDefault()
+                            handleConfirm()
+                        }}
+                        disabled={(isOwner && members.length > 0 && !newOwnerId) || isLoading}
                         className="rounded-xl bg-orange-500 hover:bg-orange-600 text-white shadow-lg shadow-orange-500/20 transition-all font-bold px-6"
                     >
-                        {t('common.confirm')}
+                        {isLoading ? (
+                            <div className="flex items-center gap-2">
+                                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                <span>{t('common.confirm')}...</span>
+                            </div>
+                        ) : t('common.confirm')}
                     </AlertDialogAction>
                 </AlertDialogFooter>
             </AlertDialogContent>

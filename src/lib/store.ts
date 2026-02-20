@@ -15,6 +15,7 @@ interface KanbanState {
     isSearchOpen: boolean;
     invitations: any[];
     activeNotifications: any[];
+    pendingRemovals: Set<string>;
 
     // Actions
     setCurrentView: (view: 'board' | 'my-tasks' | 'boards-list' | 'calendar' | 'inbox') => void;
@@ -42,6 +43,7 @@ interface KanbanState {
     updateCard: (cardId: string, updates: Partial<KanbanCard>) => Promise<void>;
     deleteCard: (cardId: string) => Promise<void>;
     addActivity: (cardId: string, text: string, type: ActivityLog['type']) => Promise<void>;
+    loadCardActivities: (cardId: string) => Promise<void>;
 
     // Card Members
     addCardMember: (cardId: string, userId: string) => Promise<void>;
@@ -71,6 +73,7 @@ export const useKanbanStore = create<KanbanState>()(
             isSearchOpen: false,
             invitations: [],
             activeNotifications: [],
+            pendingRemovals: new Set(),
 
             setCurrentView: (view: 'board' | 'my-tasks' | 'boards-list' | 'calendar' | 'inbox') => set({ currentView: view }),
             setSearchOpen: (isOpen: boolean) => set({ isSearchOpen: isOpen }),
@@ -86,10 +89,9 @@ export const useKanbanStore = create<KanbanState>()(
             fetchBoards: async (userId: string) => {
                 try {
                     const data = await api.fetchBoards(userId);
-                    // The API already filters: owned boards + accepted member boards
-                    // No additional client-side filtering needed
+                    const processedData = data.filter((b: any) => !get().pendingRemovals.has(b.id));
 
-                    const boards: Board[] = data.map((b: any) => ({
+                    const boards: Board[] = processedData.map((b: any) => ({
                         id: b.id,
                         name: b.name,
                         ownerId: b.owner_id,
@@ -133,9 +135,11 @@ export const useKanbanStore = create<KanbanState>()(
                         })).sort((a: any, b: any) => a.order - b.order) || [],
                         members: b.board_members?.map((bm: any) => ({
                             id: bm.user_id,
-                            email: bm.profiles?.email,
+                            name: bm.profiles?.full_name || 'Member',
+                            avatar: bm.profiles?.avatar_url || '',
                             role: bm.role,
-                            status: bm.status
+                            status: bm.status,
+                            color: 'bg-primary/10'
                         })) || [],
                         priorities: b.board_priorities?.map((p: any) => ({
                             id: p.id,
@@ -165,24 +169,91 @@ export const useKanbanStore = create<KanbanState>()(
             },
 
             deleteBoard: async (id: string) => {
+                const { user } = (await supabase.auth.getUser()).data;
+                if (!user) return;
+
+                // Optimistic update
+                const previousBoards = get().boards;
+                const newPending = new Set(get().pendingRemovals);
+                newPending.add(id);
+                set({
+                    boards: previousBoards.filter(b => b.id !== id),
+                    pendingRemovals: newPending
+                });
+
+                if (get().activeBoardId === id) {
+                    set({ activeBoardId: null, currentView: 'boards-list' });
+                }
+
                 try {
-                    const { user } = (await supabase.auth.getUser()).data;
-                    if (!user) return;
                     await api.deleteBoard(id);
-                    await get().fetchBoards(user.id);
+                    get().fetchBoards(user.id);
+
+                    // Clear after some time to allow server to be 100% updated
+                    setTimeout(() => {
+                        const clearedPending = new Set(get().pendingRemovals);
+                        clearedPending.delete(id);
+                        set({ pendingRemovals: clearedPending });
+                    }, 5000);
                 } catch (error) {
                     console.error('Error deleting board:', error);
+                    const clearedPending = new Set(get().pendingRemovals);
+                    clearedPending.delete(id);
+                    set({ boards: previousBoards, pendingRemovals: clearedPending });
                 }
             },
 
             leaveBoard: async (id: string, newOwnerId?: string) => {
+                const { user } = (await supabase.auth.getUser()).data;
+                if (!user) return;
+
+                // Optimistic update: Remove from local state immediately
+                const previousBoards = get().boards;
+                const newPending = new Set(get().pendingRemovals);
+                newPending.add(id);
+
+                set((state) => ({
+                    boards: state.boards.filter(b => b.id !== id),
+                    activeBoardId: state.activeBoardId === id ? null : state.activeBoardId,
+                    currentView: state.activeBoardId === id ? 'boards-list' : state.currentView,
+                    pendingRemovals: newPending
+                }));
+
                 try {
-                    const { user } = (await supabase.auth.getUser()).data;
-                    if (!user) return;
                     await api.leaveBoard(id, user.id, newOwnerId);
-                    await get().fetchBoards(user.id);
+
+                    // Re-sync with server in background
+                    get().fetchBoards(user.id);
+
+                    // Clear after some time to allow server to be 100% updated
+                    setTimeout(() => {
+                        const clearedPending = new Set(get().pendingRemovals);
+                        clearedPending.delete(id);
+                        set({ pendingRemovals: clearedPending });
+                    }, 5000);
+
+                    get().addNotification({
+                        id: Math.random().toString(),
+                        title: 'board.system',
+                        message: 'board.notificationLeftBoardSuccess',
+                        text: 'board.notificationLeftBoardSuccess',
+                        type: 'system'
+                    });
                 } catch (error) {
                     console.error('Error leaving board:', error);
+                    // Rollback on error
+                    const clearedPending = new Set(get().pendingRemovals);
+                    clearedPending.delete(id);
+                    set({ boards: previousBoards, pendingRemovals: clearedPending });
+
+                    get().addNotification({
+                        id: Math.random().toString(),
+                        title: 'common.error',
+                        message: 'board.errorLeaving',
+                        text: 'board.errorLeaving',
+                        type: 'error'
+                    });
+                    throw error;
                 }
             },
 
@@ -190,7 +261,7 @@ export const useKanbanStore = create<KanbanState>()(
                 try {
                     const { user } = (await supabase.auth.getUser()).data;
                     if (!user) return;
-                    await api.transferOwnership(boardId, newOwnerId);
+                    await api.transferBoardOwnership(boardId, newOwnerId);
                     await get().fetchBoards(user.id);
                 } catch (error) {
                     console.error('Error transferring ownership:', error);
@@ -392,6 +463,42 @@ export const useKanbanStore = create<KanbanState>()(
                     }
                 } catch (error) {
                     console.error('Error adding activity:', error);
+                }
+            },
+
+            loadCardActivities: async (cardId: string) => {
+                try {
+                    const activities = await api.fetchCardActivities(cardId);
+                    set((state) => ({
+                        boards: state.boards.map(board => ({
+                            ...board,
+                            columns: board.columns.map(col => ({
+                                ...col,
+                                cards: col.cards.map(card => {
+                                    if (card.id === cardId) {
+                                        return {
+                                            ...card,
+                                            activity: activities.map(a => ({
+                                                id: a.id,
+                                                text: a.text || '',
+                                                type: a.type || 'system',
+                                                timestamp: a.created_at,
+                                                params: a.params || {},
+                                                user: a.profiles ? {
+                                                    id: a.profiles.id,
+                                                    name: a.profiles.full_name,
+                                                    avatar: a.profiles.avatar_url
+                                                } : undefined
+                                            }))
+                                        };
+                                    }
+                                    return card;
+                                })
+                            }))
+                        }))
+                    }));
+                } catch (error) {
+                    console.error('Error loading card activities:', error);
                 }
             },
 

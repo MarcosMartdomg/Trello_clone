@@ -8,21 +8,56 @@ export const api = {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return;
 
-            const { error } = await supabase.from('profiles').upsert({
+            // We use a non-blocking approach to not abort transactions if this fails
+            supabase.from('profiles').upsert({
                 id: userId,
                 full_name: user.user_metadata?.full_name || 'User',
-                email: user.email,
                 avatar_url: user.user_metadata?.avatar_url || ''
+            }).then(({ error }) => {
+                if (error) {
+                    console.error("api: error ensuring profile (non-blocking)", error.message);
+                }
             });
-            if (error) console.error("api: error ensuring profile", error);
         } catch (e) {
             console.error("api: exception in ensureProfile", e);
         }
     },
 
     // Boards
+    fetchBoardList: async (userId: string) => {
+        // Query 1: Owned boards
+        const { data: owned, error: ownedError } = await supabase
+            .from('boards')
+            .select('id, name, type, owner_id, is_favorite')
+            .eq('owner_id', userId);
+
+        // Query 2: Shared boards (accepted membership)
+        const { data: membershipData, error: memberError } = await supabase
+            .from('board_members')
+            .select('board_id, boards(id, name, type, owner_id, is_favorite)')
+            .eq('user_id', userId)
+            .eq('status', 'accepted');
+
+        if (ownedError || memberError) {
+            console.error("api: fetchBoardList error", { ownedError, memberError });
+        }
+
+        const shared = (membershipData || [])
+            .map((m: any) => m.boards)
+            .filter(Boolean);
+
+        // Merge and deduplicate
+        const ownedIds = new Set((owned || []).map((b: any) => b.id));
+        const merged = [
+            ...(owned || []),
+            ...shared.filter((b: any) => !ownedIds.has(b.id))
+        ];
+
+        return merged;
+    },
+
     fetchBoards: async (userId: string) => {
-        await api.ensureProfile(userId);
+        api.ensureProfile(userId); // Don't await it
 
         const boardSelect = `
             id,
@@ -34,7 +69,7 @@ export const api = {
                 user_id,
                 role,
                 status,
-                profiles (full_name, avatar_url, email)
+                profiles (full_name, avatar_url)
             ),
             columns (
                 id,
@@ -51,10 +86,6 @@ export const api = {
                     position,
                     labels,
                     checklist,
-                    activities (
-                        *,
-                        profiles (id, full_name, avatar_url)
-                    ),
                     card_members (
                         user_id,
                         profiles (full_name, avatar_url)
@@ -63,52 +94,36 @@ export const api = {
             )
         `;
 
-        // Query 1: Boards the user owns (RLS handles this)
-        const { data: ownedBoards, error: ownedError } = await supabase
+        // Query 1: Owned boards
+        const { data: owned, error: ownedError } = await supabase
             .from('boards')
             .select(boardSelect)
             .eq('owner_id', userId);
 
-        if (ownedError) {
-            console.error("api: fetchBoards owned error:", {
-                message: ownedError.message,
-                details: ownedError.details,
-                hint: ownedError.hint,
-                code: ownedError.code
-            });
-            throw ownedError;
-        }
-
-        // Query 2: Boards where user is an accepted member
-        // Step 1: Get board IDs from board_members
+        // Query 2: Shared boards (get board IDs first)
         const { data: membershipData, error: memberError } = await supabase
             .from('board_members')
             .select('board_id')
             .eq('user_id', userId)
             .eq('status', 'accepted');
 
+        if (ownedError) throw ownedError;
+
         let sharedBoards: any[] = [];
-        if (memberError) {
-            console.error("api: fetchBoards membership query error:", memberError);
-        } else if (membershipData && membershipData.length > 0) {
-            // Step 2: Fetch full board data for those board IDs
+        if (membershipData && membershipData.length > 0) {
             const boardIds = membershipData.map((m: any) => m.board_id);
             const { data: shared, error: sharedError } = await supabase
                 .from('boards')
                 .select(boardSelect)
                 .in('id', boardIds);
 
-            if (sharedError) {
-                console.error("api: fetchBoards shared error:", sharedError);
-            } else {
-                sharedBoards = shared || [];
-            }
+            if (!sharedError) sharedBoards = shared || [];
         }
 
         // Merge and deduplicate
-        const ownedIds = new Set((ownedBoards || []).map((b: any) => b.id));
+        const ownedIds = new Set((owned || []).map((b: any) => b.id));
         const merged = [
-            ...(ownedBoards || []),
+            ...(owned || []),
             ...sharedBoards.filter((b: any) => !ownedIds.has(b.id))
         ];
 
@@ -142,19 +157,20 @@ export const api = {
     },
 
     transferBoardOwnership: async (boardId: string, newOwnerId: string) => {
-        const { error } = await supabase
-            .from('boards')
-            .update({ owner_id: newOwnerId })
-            .eq('id', boardId);
-        if (error) throw error;
-    },
+        const { error } = await supabase.rpc('transfer_board_ownership', {
+            board_id: boardId,
+            new_owner_id: newOwnerId
+        });
 
-    transferOwnership: async (boardId: string, newOwnerId: string) => {
-        const { error } = await supabase
-            .from('boards')
-            .update({ owner_id: newOwnerId })
-            .eq('id', boardId);
-        if (error) throw error;
+        if (error) {
+            console.error("api: transferBoardOwnership RPC error:", {
+                message: error.message,
+                code: error.code,
+                details: error.details,
+                hint: error.hint
+            });
+            throw error;
+        }
     },
 
     updateBoard: async (id: string, updates: any) => {
@@ -306,7 +322,21 @@ export const api = {
             .from('board_members')
             .delete()
             .match({ board_id: boardId, user_id: userId });
-        if (error) throw error;
+
+        if (error) {
+            const errorMsg = `api: removeBoardMember error: ${error.message}${error.code === '42501' ? ' (RLS Policy restriction)' : ''} (Code: ${error.code})`;
+            console.error(errorMsg, {
+                message: error.message,
+                code: error.code,
+                details: error.details,
+                hint: error.hint,
+                boardId,
+                userId
+            });
+            throw new Error(errorMsg);
+        } else {
+            console.log(`api: Successfully removed record for board ${boardId} and user ${userId}`);
+        }
     },
 
     removeMember: async (boardId: string, userId: string) => {
@@ -315,9 +345,52 @@ export const api = {
 
     leaveBoard: async (boardId: string, userId: string, newOwnerId?: string) => {
         if (newOwnerId) {
-            await api.transferBoardOwnership(boardId, newOwnerId);
+            try {
+                console.log(`api: Transferring ownership of board ${boardId} to ${newOwnerId}`);
+                await api.transferBoardOwnership(boardId, newOwnerId);
+            } catch (error: any) {
+                const errorMsg = `api: leaveBoard transfer error: ${error.message} (Code: ${error.code})`;
+                console.error(errorMsg, { error, boardId, userId, newOwnerId });
+                throw new Error(errorMsg);
+            }
         }
-        await api.removeBoardMember(boardId, userId);
+
+        try {
+            console.log(`api: Dissociating user ${userId} from board ${boardId}`);
+
+            // 1. Clean up card memberships in this board for this user
+            // Optimization: Get all cards belonging to this board's columns
+            const { data: columns } = await supabase
+                .from('columns')
+                .select('id')
+                .eq('board_id', boardId);
+
+            if (columns && columns.length > 0) {
+                const columnIds = columns.map(c => c.id);
+                const { data: cards } = await supabase
+                    .from('cards')
+                    .select('id')
+                    .in('column_id', columnIds);
+
+                if (cards && cards.length > 0) {
+                    const cardIds = cards.map(c => c.id);
+                    await supabase
+                        .from('card_members')
+                        .delete()
+                        .in('card_id', cardIds)
+                        .eq('user_id', userId);
+                }
+            }
+
+            // 2. Remove from board_members
+            await api.removeBoardMember(boardId, userId);
+
+            console.log(`api: Successfully disconnected user ${userId} from board ${boardId}`);
+        } catch (error: any) {
+            const errorMsg = `api: leaveBoard removal/cleanup error: ${error.message} (Code: ${error.code})`;
+            console.error(errorMsg, { error, boardId, userId });
+            throw new Error(errorMsg);
+        }
     },
 
     updateInvitationStatus: async (boardId: string, userId: string, status: 'accepted' | 'declined') => {
@@ -401,5 +474,22 @@ export const api = {
         if (error) {
             console.error("api: logActivity error", error);
         }
+    },
+
+    fetchCardActivities: async (cardId: string) => {
+        const { data, error } = await supabase
+            .from('activities')
+            .select(`
+                *,
+                profiles (id, full_name, avatar_url)
+            `)
+            .eq('card_id', cardId)
+            .order('created_at', { ascending: false });
+
+        if (error) {
+            console.error("api: fetchCardActivities error", error);
+            throw error;
+        }
+        return data as any[];
     }
 };
