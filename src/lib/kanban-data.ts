@@ -41,6 +41,8 @@ export interface KanbanCard {
   priority: string
   color?: string
   due_date?: string
+  columnId?: string
+  order?: number
   activity: ActivityLog[]
 }
 

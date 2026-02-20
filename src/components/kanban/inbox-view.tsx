@@ -86,7 +86,7 @@ export function InboxView() {
                         </h1>
                     </div>
                     <p className="text-muted-foreground font-medium pl-[52px]">
-                        {t('sidebar.inboxDescription') || "Centro de notificaciones e invitaciones del equipo."}
+                        {t('sidebar.inboxDescription') || "Centro de notificaciones e invitaciones."}
                     </p>
                 </div>
 
@@ -164,7 +164,7 @@ export function InboxView() {
                                 <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
                                     <UserPlus className="w-4 h-4 text-primary" />
                                 </div>
-                                <h2 className="text-xl font-bold tracking-tight">{t('sidebar.team')}</h2>
+                                <h2 className="text-xl font-bold tracking-tight">{t('sidebar.sharedBoards')}</h2>
                                 <span className="text-xs font-black bg-primary text-primary-foreground px-2 py-0.5 rounded-full">
                                     {invitations.length}
                                 </span>

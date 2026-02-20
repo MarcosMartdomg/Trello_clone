@@ -34,7 +34,7 @@ export const api = {
                 user_id,
                 role,
                 status,
-                profiles (full_name, avatar_url)
+                profiles (full_name, avatar_url, email)
             ),
             columns (
                 id,
@@ -79,7 +79,8 @@ export const api = {
             throw ownedError;
         }
 
-        // Query 2: Boards where user is an accepted member (join via board_members)
+        // Query 2: Boards where user is an accepted member
+        // Step 1: Get board IDs from board_members
         const { data: membershipData, error: memberError } = await supabase
             .from('board_members')
             .select('board_id')
@@ -87,7 +88,10 @@ export const api = {
             .eq('status', 'accepted');
 
         let sharedBoards: any[] = [];
-        if (!memberError && membershipData && membershipData.length > 0) {
+        if (memberError) {
+            console.error("api: fetchBoards membership query error:", memberError);
+        } else if (membershipData && membershipData.length > 0) {
+            // Step 2: Fetch full board data for those board IDs
             const boardIds = membershipData.map((m: any) => m.board_id);
             const { data: shared, error: sharedError } = await supabase
                 .from('boards')
@@ -219,10 +223,8 @@ export const api = {
     },
 
     updateCard: async (id: string, updates: any) => {
-        // Redundancy handling for labels/tags schema mismatch
-        const finalUpdates = { ...updates };
-        if (updates.labels && !updates.tags) finalUpdates.tags = updates.labels;
-        if (updates.tags && !updates.labels) finalUpdates.labels = updates.tags;
+        // Only send known DB columns - remove 'tags' if present (DB uses 'labels')
+        const { tags, ...finalUpdates } = updates;
 
         console.log(`api: updating card ${id} with:`, finalUpdates);
         const { error } = await supabase.from('cards').update(finalUpdates).eq('id', id);
@@ -268,26 +270,29 @@ export const api = {
 
     // Board Members & Invitations
     addBoardMember: async (boardId: string, userId: string) => {
-        // Check if a record already exists (from prev declined/ghost invitation)
+        // More robust check for existing records to prevent duplicates
         const { data: existing, error: checkError } = await supabase
             .from('board_members')
             .select('id, status')
-            .match({ board_id: boardId, user_id: userId })
-            .maybeSingle();
+            .match({ board_id: boardId, user_id: userId });
 
-        if (existing) {
-            // Record exists — just update status back to 'pending'
+        if (checkError) {
+            console.error("api: error checking for existing board member", checkError);
+            throw checkError;
+        }
+
+        if (existing && existing.length > 0) {
+            // Record(s) exist — update all to 'pending' to be safe
             const { error } = await supabase
                 .from('board_members')
                 .update({ status: 'pending' })
-                .eq('id', existing.id);
+                .match({ board_id: boardId, user_id: userId });
             if (error) throw error;
         } else {
             // No record — insert fresh
-            const { data, error } = await supabase
+            const { error } = await supabase
                 .from('board_members')
-                .insert([{ board_id: boardId, user_id: userId, role: 'editor', status: 'pending' }])
-                .select();
+                .insert([{ board_id: boardId, user_id: userId, role: 'editor', status: 'pending' }]);
             if (error) throw error;
         }
     },
@@ -316,6 +321,7 @@ export const api = {
     },
 
     updateInvitationStatus: async (boardId: string, userId: string, status: 'accepted' | 'declined') => {
+        // Match all potential duplicates to ensure state consistency
         const { error } = await supabase
             .from('board_members')
             .update({ status: status })
@@ -390,8 +396,7 @@ export const api = {
                 user_id: userId,
                 text,
                 type,
-                params,
-                timestamp: new Date().toISOString()
+                params: params || {}
             }]);
         if (error) {
             console.error("api: logActivity error", error);

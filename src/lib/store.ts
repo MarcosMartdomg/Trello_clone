@@ -41,7 +41,7 @@ interface KanbanState {
     addCard: (columnId: string, card: Partial<KanbanCard>) => Promise<void>;
     updateCard: (cardId: string, updates: Partial<KanbanCard>) => Promise<void>;
     deleteCard: (cardId: string) => Promise<void>;
-    addActivity: (cardId: string, text: string, type: ActivityLog['type']) => void;
+    addActivity: (cardId: string, text: string, type: ActivityLog['type']) => Promise<void>;
 
     // Card Members
     addCardMember: (cardId: string, userId: string) => Promise<void>;
@@ -86,14 +86,10 @@ export const useKanbanStore = create<KanbanState>()(
             fetchBoards: async (userId: string) => {
                 try {
                     const data = await api.fetchBoards(userId);
-                    const filteredData = data.filter((b: any) => {
-                        if (b.owner_id === userId) return true;
-                        return b.board_members?.some((bm: any) =>
-                            bm.user_id === userId && bm.status === 'accepted'
-                        );
-                    });
+                    // The API already filters: owned boards + accepted member boards
+                    // No additional client-side filtering needed
 
-                    const boards: Board[] = filteredData.map((b: any) => ({
+                    const boards: Board[] = data.map((b: any) => ({
                         id: b.id,
                         name: b.name,
                         ownerId: b.owner_id,
@@ -123,9 +119,10 @@ export const useKanbanStore = create<KanbanState>()(
                                 })) || [],
                                 activity: card.activities?.map((a: any) => ({
                                     id: a.id,
-                                    text: a.log_text || '',
-                                    type: a.log_type || 'system',
-                                    timestamp: a.created_at,
+                                    text: a.text || a.log_text || '',
+                                    type: a.type || a.log_type || 'system',
+                                    timestamp: a.created_at || a.timestamp,
+                                    params: a.params || {},
                                     user: a.profiles ? {
                                         id: a.profiles.id,
                                         name: a.profiles.full_name,
@@ -213,14 +210,28 @@ export const useKanbanStore = create<KanbanState>()(
 
             acceptInvitation: async (boardId: string, userId: string) => {
                 try {
+                    const invitation = get().invitations.find((inv: any) => inv.board_id === boardId);
+                    const boardName = invitation?.boards?.name || '';
+
                     await api.updateInvitationStatus(boardId, userId, 'accepted');
+
+                    set((state) => ({
+                        activeNotifications: state.activeNotifications.filter(
+                            n => !(n.boardId === boardId && n.userId === userId)
+                        )
+                    }));
+
                     await get().fetchInvitations(userId);
                     await get().fetchBoards(userId);
+
                     get().addNotification({
                         id: Math.random().toString(),
-                        title: 'Invitación aceptada',
-                        message: 'Ahora eres miembro del tablero',
-                        type: 'success'
+                        title: 'board.system',
+                        message: 'board.nowMember',
+                        text: 'board.nowMember',
+                        type: 'system',
+                        boardName: boardName,
+                        userId: userId
                     });
                 } catch (error) {
                     console.error('Error accepting invitation:', error);
@@ -230,6 +241,13 @@ export const useKanbanStore = create<KanbanState>()(
             declineInvitation: async (boardId: string, userId: string) => {
                 try {
                     await api.updateInvitationStatus(boardId, userId, 'declined');
+
+                    set((state) => ({
+                        activeNotifications: state.activeNotifications.filter(
+                            n => !(n.boardId === boardId && n.userId === userId)
+                        )
+                    }));
+
                     await get().fetchInvitations(userId);
                 } catch (error) {
                     console.error('Error declining invitation:', error);
@@ -281,11 +299,38 @@ export const useKanbanStore = create<KanbanState>()(
             })),
 
             moveCard: async (activeId, overId) => {
-                // ... logic to move card (locally first for performance, then API)
-                // This is a complex logic that involves reordering
-                // For now, let's keep it simple or call API and refetch
                 const { user } = (await supabase.auth.getUser()).data;
-                if (user) await get().fetchBoards(user.id);
+                if (!user) return;
+
+                const allCards = get().boards.flatMap(b => b.columns.flatMap(c => c.cards));
+                const activeCard = allCards.find(c => c.id === activeId);
+                const overCard = allCards.find(c => c.id === overId);
+                const overColumn = get().boards.flatMap(b => b.columns).find(c => c.id === overId);
+
+                if (!activeCard || (!overCard && !overColumn)) return;
+
+                const newColumnId = overColumn ? overColumn.id : (overCard?.columnId || '');
+                const newPosition = overColumn ? 0 : (overCard?.order || 0) + 1;
+
+                if (!newColumnId) return;
+
+                try {
+                    await api.moveCard(activeId, newColumnId, newPosition);
+
+                    const oldColumn = get().boards.flatMap(b => b.columns).find(c => c.id === activeCard.columnId);
+                    const newColumn = get().boards.flatMap(b => b.columns).find(c => c.id === newColumnId);
+
+                    if (oldColumn && newColumn && oldColumn.id !== newColumn.id) {
+                        await api.logActivity(activeId, user.id, '', 'move', {
+                            from: oldColumn.title,
+                            to: newColumn.title
+                        });
+                    }
+
+                    await get().fetchBoards(user.id);
+                } catch (error) {
+                    console.error('Error moving card:', error);
+                }
             },
 
             addCard: async (columnId, card) => {
@@ -295,9 +340,12 @@ export const useKanbanStore = create<KanbanState>()(
                 const position = column?.cards.length || 0;
 
                 try {
-                    await api.createCard(columnId, card.title || 'New Card', position);
+                    const newCard = await api.createCard(columnId, card.title || 'New Card', position);
                     const { user } = (await supabase.auth.getUser()).data;
-                    if (user) await get().fetchBoards(user.id);
+                    if (user && newCard) {
+                        await api.logActivity(newCard.id, user.id, 'board.createdCard', 'create');
+                        await get().fetchBoards(user.id);
+                    }
                 } catch (error) {
                     console.error('Error adding card:', error);
                 }
@@ -305,9 +353,21 @@ export const useKanbanStore = create<KanbanState>()(
 
             updateCard: async (cardId, updates) => {
                 try {
+                    const allCards = get().boards.flatMap(b => b.columns.flatMap(c => c.cards));
+                    const originalCard = allCards.find(c => c.id === cardId);
+
                     await api.updateCard(cardId, updates);
                     const { user } = (await supabase.auth.getUser()).data;
-                    if (user) await get().fetchBoards(user.id);
+
+                    if (user && originalCard) {
+                        if (updates.title && updates.title !== originalCard.title) {
+                            await api.logActivity(cardId, user.id, `Cambió el título de "${originalCard.title}" a "${updates.title}"`, 'edit');
+                        }
+                        if (updates.description !== undefined && updates.description !== originalCard.description) {
+                            await api.logActivity(cardId, user.id, 'Editó la descripción', 'edit');
+                        }
+                        await get().fetchBoards(user.id);
+                    }
                 } catch (error) {
                     console.error('Error updating card:', error);
                 }
@@ -323,8 +383,16 @@ export const useKanbanStore = create<KanbanState>()(
                 }
             },
 
-            addActivity: (cardId, text, type) => {
-                // Implementation for activity logging
+            addActivity: async (cardId, text, type) => {
+                try {
+                    const { user } = (await supabase.auth.getUser()).data;
+                    if (user) {
+                        await api.logActivity(cardId, user.id, text, type);
+                        await get().fetchBoards(user.id);
+                    }
+                } catch (error) {
+                    console.error('Error adding activity:', error);
+                }
             },
 
             addCardMember: async (cardId, userId) => {
@@ -384,24 +452,18 @@ export const useKanbanStore = create<KanbanState>()(
             setSearchQuery: (query: string) => set({ searchQuery: query }),
 
             toggleTagFilter: (tag: string) =>
-                set((state) => {
-                    const exists = state.tagFilter.includes(tag);
-                    return {
-                        tagFilter: exists
-                            ? state.tagFilter.filter((t) => t !== tag)
-                            : [...state.tagFilter, tag],
-                    };
-                }),
+                set((state) => ({
+                    tagFilter: state.tagFilter.includes(tag)
+                        ? state.tagFilter.filter((t) => t !== tag)
+                        : [...state.tagFilter, tag],
+                })),
 
             togglePriorityFilter: (priority: string) =>
-                set((state) => {
-                    const exists = state.priorityFilter.includes(priority);
-                    return {
-                        priorityFilter: exists
-                            ? state.priorityFilter.filter((p) => p !== priority)
-                            : [...state.priorityFilter, priority],
-                    };
-                }),
+                set((state) => ({
+                    priorityFilter: state.priorityFilter.includes(priority)
+                        ? state.priorityFilter.filter((p) => p !== priority)
+                        : [...state.priorityFilter, priority],
+                })),
 
             clearPriorityFilters: () => set({ priorityFilter: [] }),
             clearTagFilters: () => set({ tagFilter: [] }),

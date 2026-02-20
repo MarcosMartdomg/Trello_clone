@@ -1,7 +1,7 @@
 
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import {
     Search,
     LayoutDashboard,
@@ -21,6 +21,7 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useKanbanStore } from "@/lib/store"
+import { supabase } from "@/lib/supabase"
 import { useAuth } from "@/components/auth/auth-provider"
 import { CreateBoardModal } from "./create-board-modal"
 import { ConfirmDeleteModal } from "./confirm-delete-modal"
@@ -50,8 +51,10 @@ export function KanbanSidebar() {
         invitations,
         currentView,
         setCurrentView,
-        setSearchOpen
+        setSearchOpen,
+        addNotification
     } = useKanbanStore()
+    const prevInvitationIdsRef = useRef<string[]>([])
     const { user, signOut } = useAuth()
     const { t } = useTranslation()
     const userInitial = user?.email?.[0].toUpperCase() || "U"
@@ -61,20 +64,85 @@ export function KanbanSidebar() {
             fetchBoards(user.id)
             fetchInvitations(user.id)
 
-            // Poll for new invitations every 10 seconds
+            // Real-time subscription for new invitations
+            const channel = supabase
+                .channel('invitation-notifications')
+                .on(
+                    'postgres_changes',
+                    {
+                        event: 'INSERT',
+                        schema: 'public',
+                        table: 'board_members',
+                        filter: `user_id=eq.${user.id}`
+                    },
+                    async (payload) => {
+                        const newRecord = payload.new as any;
+                        if (newRecord.status === 'pending') {
+                            // Fetch updated invitations to get board name
+                            await fetchInvitations(user.id);
+                            const updatedInvitations = useKanbanStore.getState().invitations;
+                            const newInvite = updatedInvitations.find((inv: any) => inv.board_id === newRecord.board_id);
+
+                            addNotification({
+                                id: `inv-${newRecord.board_id}-${Date.now()}`,
+                                title: 'Nueva invitación',
+                                boardId: newRecord.board_id,
+                                boardName: newInvite?.boards?.name || 'Tablero',
+                                type: 'invitation',
+                                userId: user.id
+                            });
+                        }
+                    }
+                )
+                .on(
+                    'postgres_changes',
+                    {
+                        event: 'UPDATE',
+                        schema: 'public',
+                        table: 'board_members',
+                        filter: `user_id=eq.${user.id}`
+                    },
+                    async (payload) => {
+                        const updatedRecord = payload.new as any;
+                        if (updatedRecord.status === 'pending') {
+                            // Reinvited - fetch and notify
+                            await fetchInvitations(user.id);
+                            const updatedInvitations = useKanbanStore.getState().invitations;
+                            const newInvite = updatedInvitations.find((inv: any) => inv.board_id === updatedRecord.board_id);
+
+                            addNotification({
+                                id: `inv-${updatedRecord.board_id}-${Date.now()}`,
+                                title: 'Nueva invitación',
+                                boardId: updatedRecord.board_id,
+                                boardName: newInvite?.boards?.name || 'Tablero',
+                                type: 'invitation',
+                                userId: user.id
+                            });
+                        } else if (updatedRecord.status === 'accepted') {
+                            // Refresh boards when accepted
+                            await fetchBoards(user.id);
+                        }
+                    }
+                )
+                .subscribe();
+
+            // Poll for new invitations every 10 seconds as fallback
             const interval = setInterval(() => {
                 fetchInvitations(user.id)
             }, 10000)
-            return () => clearInterval(interval)
+
+            return () => {
+                clearInterval(interval)
+                supabase.removeChannel(channel)
+            }
         }
-    }, [user, fetchBoards, fetchInvitations])
+    }, [user, fetchBoards, fetchInvitations, addNotification])
 
     const navItems = [
         { id: "board", label: t('sidebar.myBoards'), icon: LayoutDashboard },
         { id: "tasks", label: t('sidebar.myTasks'), icon: CheckSquare },
         { id: "calendar", label: t('calendar.title'), icon: CalendarIcon },
-        { id: "inbox", label: t('sidebar.inbox'), icon: Inbox, badge: invitations.length > 0 ? invitations.length : undefined },
-        { id: "team", label: t('sidebar.team'), icon: Users },
+        { id: "inbox", label: t('sidebar.inbox'), icon: Inbox, badge: invitations.length > 0 ? invitations.length : undefined }
     ]
 
     const handleCreateBoard = (name: string, type: 'personal' | 'shared' = 'personal') => {
@@ -180,7 +248,7 @@ export function KanbanSidebar() {
 
                             <div className="space-y-0.5">
                                 {boards
-                                    .filter(b => b.ownerId === user?.id && (b.type || 'personal') === 'personal')
+                                    .filter(b => b.ownerId === user?.id && b.type !== 'shared')
                                     .sort((a, b) => (b.isFavorite ? 1 : 0) - (a.isFavorite ? 1 : 0))
                                     .map((board) => (
                                         <BoardItem
@@ -194,7 +262,7 @@ export function KanbanSidebar() {
                                             isOwner={true}
                                         />
                                     ))}
-                                {boards.filter(b => b.ownerId === user?.id && (b.type || 'personal') === 'personal').length === 0 && (
+                                {boards.filter(b => b.ownerId === user?.id && b.type !== 'shared').length === 0 && (
                                     <p className="px-3 py-2 text-xs text-muted-foreground italic">{t('sidebar.noBoards')}</p>
                                 )}
                             </div>

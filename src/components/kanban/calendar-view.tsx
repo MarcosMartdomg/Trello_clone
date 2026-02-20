@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from "lucide-react"
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, User, Users } from "lucide-react"
 import { useKanbanStore } from "@/lib/store"
 import { useTranslation } from "@/hooks/use-translation"
 import { KanbanCard } from "@/lib/kanban-data"
@@ -19,7 +19,7 @@ export function CalendarView() {
 
     // Get all cards with due dates from all boards
     const getAllCardsWithDates = () => {
-        const cardsWithDates: Array<{ card: KanbanCard; boardName: string; columnTitle: string }> = []
+        const cardsWithDates: Array<{ card: KanbanCard; boardName: string; columnTitle: string; boardType: 'personal' | 'shared' }> = []
 
         boards.forEach(board => {
             board.columns.forEach(column => {
@@ -28,7 +28,8 @@ export function CalendarView() {
                         cardsWithDates.push({
                             card,
                             boardName: board.name,
-                            columnTitle: column.title
+                            columnTitle: column.title,
+                            boardType: board.type as 'personal' | 'shared'
                         })
                     }
                 })
@@ -100,18 +101,16 @@ export function CalendarView() {
         setCurrentDate(new Date())
     }
 
-    const getPriorityColor = (priority: string) => {
-        switch (priority) {
-            case 'urgent':
-                return 'bg-red-500'
-            case 'high':
-                return 'bg-orange-500'
-            case 'medium':
-                return 'bg-amber-400'
-            case 'low':
-                return 'bg-slate-400'
-            default:
-                return 'bg-gray-400'
+    const getBoardTypeStyles = (boardType: 'personal' | 'shared') => {
+        if (boardType === 'personal') {
+            return {
+                bg: 'bg-violet-500 hover:bg-violet-600',
+                indicator: 'bg-violet-300/40',
+            }
+        }
+        return {
+            bg: 'bg-amber-500 hover:bg-amber-600',
+            indicator: 'bg-amber-300/40',
         }
     }
 
@@ -206,20 +205,28 @@ export function CalendarView() {
                                         </div>
 
                                         <div className="flex-1 overflow-y-auto space-y-1 scrollbar-hide">
-                                            {dayCards.slice(0, 3).map(({ card, boardName }) => (
-                                                <button
-                                                    key={card.id}
-                                                    onClick={() => setSelectedCard(card)}
-                                                    className={cn(
-                                                        "w-full text-left px-2 py-1 rounded text-xs font-medium transition-all hover:scale-105",
-                                                        "text-white truncate",
-                                                        getPriorityColor(card.priority)
-                                                    )}
-                                                    title={card.title}
-                                                >
-                                                    {card.title}
-                                                </button>
-                                            ))}
+                                            {dayCards.slice(0, 3).map(({ card, boardName, boardType }) => {
+                                                const styles = getBoardTypeStyles(boardType)
+                                                return (
+                                                    <button
+                                                        key={card.id}
+                                                        onClick={() => setSelectedCard(card)}
+                                                        className={cn(
+                                                            "w-full text-left px-2 py-1 rounded text-xs font-medium transition-all hover:scale-105",
+                                                            "text-white truncate flex items-center gap-1.5",
+                                                            styles.bg
+                                                        )}
+                                                        title={`${card.title} · ${boardName} (${boardType === 'personal' ? t('members.personal') : t('members.shared')})`}
+                                                    >
+                                                        <span className={cn("shrink-0 w-3.5 h-3.5 rounded-full flex items-center justify-center", styles.indicator)}>
+                                                            {boardType === 'personal'
+                                                                ? <User className="w-2 h-2" />
+                                                                : <Users className="w-2 h-2" />}
+                                                        </span>
+                                                        <span className="truncate">{card.title}</span>
+                                                    </button>
+                                                )
+                                            })}
                                             {dayCards.length > 3 && (
                                                 <div className="text-xs text-muted-foreground text-center py-1">
                                                     +{dayCards.length - 3} {t('calendar.more')}

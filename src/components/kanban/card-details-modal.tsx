@@ -511,57 +511,59 @@ export function CardDetailsModal({ card, columnTitle, isOpen, onClose, isReadOnl
                             <div className="space-y-3">
                                 <h4 className="text-[11px] font-black text-muted-foreground/70 uppercase tracking-[0.2em] ml-1">{t('board.addToCard')}</h4>
                                 <div className="grid grid-cols-1 gap-2">
-                                    {/* MEMBERS POPOVER */}
-                                    <Popover open={isOpenMembersPopover} onOpenChange={setIsOpenMembersPopover}>
-                                        <PopoverTrigger asChild>
-                                            <Button variant="secondary" className="w-full justify-start gap-3 h-10 text-[11px] font-bold uppercase tracking-wider bg-secondary/40 hover:bg-primary hover:text-primary-foreground rounded-xl border border-transparent hover:border-primary/20 transition-all shadow-sm">
-                                                <User className="w-4 h-4" />
-                                                {t('board.members')}
-                                            </Button>
-                                        </PopoverTrigger>
-                                        <PopoverContent className="w-[280px] p-0 shadow-2xl rounded-2xl border-border/40 bg-card overflow-hidden" align="start" sideOffset={8}>
-                                            <div className="flex items-center justify-between px-4 py-3 border-b border-border/30 bg-muted/20">
-                                                <span className="text-xs font-bold text-foreground mx-auto">{t('board.members')}</span>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-6 w-6 rounded-full absolute right-2 hover:bg-secondary/60"
-                                                    onClick={() => setIsOpenMembersPopover(false)}
-                                                >
-                                                    <XIcon className="w-3 h-3 opacity-60" />
+                                    {/* MEMBERS POPOVER - only for shared boards */}
+                                    {activeBoard?.type !== 'personal' && (
+                                        <Popover open={isOpenMembersPopover} onOpenChange={setIsOpenMembersPopover}>
+                                            <PopoverTrigger asChild>
+                                                <Button variant="secondary" className="w-full justify-start gap-3 h-10 text-[11px] font-bold uppercase tracking-wider bg-secondary/40 hover:bg-primary hover:text-primary-foreground rounded-xl border border-transparent hover:border-primary/20 transition-all shadow-sm">
+                                                    <User className="w-4 h-4" />
+                                                    {t('board.members')}
                                                 </Button>
-                                            </div>
-
-                                            <div className="p-2 space-y-1">
-                                                <Input
-                                                    placeholder={t('members.searchPlaceholder')}
-                                                    className="h-8 text-xs bg-secondary/20 border-border/40 rounded-lg mb-2"
-                                                />
-                                                <div className="space-y-1 max-h-[200px] overflow-y-auto">
-                                                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-2 py-1">{t('board.boardMembers')}</p>
-                                                    {boardMembers.length === 0 && (
-                                                        <p className="text-xs text-muted-foreground italic px-2 py-2">{t('members.noMembers')}</p>
-                                                    )}
-                                                    {boardMembers.map(member => {
-                                                        const isSelected = card.members?.some(m => m.id === member.id)
-                                                        return (
-                                                            <button
-                                                                key={member.id}
-                                                                onClick={() => toggleMember(member.id)}
-                                                                className="flex items-center gap-3 w-full p-2 hover:bg-secondary/40 rounded-lg transition-colors group"
-                                                            >
-                                                                <Avatar className="h-7 w-7">
-                                                                    <AvatarFallback className="text-[9px] font-bold bg-primary/10 text-primary">{member.name?.[0]}</AvatarFallback>
-                                                                </Avatar>
-                                                                <span className="text-xs font-medium text-foreground flex-1 text-left truncate">{member.name}</span>
-                                                                {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-primary" />}
-                                                            </button>
-                                                        )
-                                                    })}
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-[280px] p-0 shadow-2xl rounded-2xl border-border/40 bg-card overflow-hidden" align="start" sideOffset={8}>
+                                                <div className="flex items-center justify-between px-4 py-3 border-b border-border/30 bg-muted/20">
+                                                    <span className="text-xs font-bold text-foreground mx-auto">{t('board.members')}</span>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-6 w-6 rounded-full absolute right-2 hover:bg-secondary/60"
+                                                        onClick={() => setIsOpenMembersPopover(false)}
+                                                    >
+                                                        <XIcon className="w-3 h-3 opacity-60" />
+                                                    </Button>
                                                 </div>
-                                            </div>
-                                        </PopoverContent>
-                                    </Popover>
+
+                                                <div className="p-2 space-y-1">
+                                                    <Input
+                                                        placeholder={t('members.searchPlaceholder')}
+                                                        className="h-8 text-xs bg-secondary/20 border-border/40 rounded-lg mb-2"
+                                                    />
+                                                    <div className="space-y-1 max-h-[200px] overflow-y-auto">
+                                                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-2 py-1">{t('board.boardMembers')}</p>
+                                                        {boardMembers.length === 0 && (
+                                                            <p className="text-xs text-muted-foreground italic px-2 py-2">{t('members.noMembers')}</p>
+                                                        )}
+                                                        {boardMembers.map(member => {
+                                                            const isSelected = card.members?.some(m => m.id === member.id)
+                                                            return (
+                                                                <button
+                                                                    key={member.id}
+                                                                    onClick={() => toggleMember(member.id)}
+                                                                    className="flex items-center gap-3 w-full p-2 hover:bg-secondary/40 rounded-lg transition-colors group"
+                                                                >
+                                                                    <Avatar className="h-7 w-7">
+                                                                        <AvatarFallback className="text-[9px] font-bold bg-primary/10 text-primary">{member.name?.[0]}</AvatarFallback>
+                                                                    </Avatar>
+                                                                    <span className="text-xs font-medium text-foreground flex-1 text-left truncate">{member.name}</span>
+                                                                    {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-primary" />}
+                                                                </button>
+                                                            )
+                                                        })}
+                                                    </div>
+                                                </div>
+                                            </PopoverContent>
+                                        </Popover>
+                                    )}
 
                                     <SidebarButton icon={CheckSquare} label={t('board.checklist')} onClick={() => setShowChecklist(true)} />
 
@@ -710,8 +712,15 @@ export function CardDetailsModal({ card, columnTitle, isOpen, onClose, isReadOnl
                                                             isActive && "opacity-50 grayscale"
                                                         )}
                                                         onClick={() => {
-                                                            const newLabels = [...(card.labels || []), { id: preset.id, text: preset.text, color: preset.color }];
-                                                            updateCard(card.id, { labels: newLabels });
+                                                            const priorityPresets = ['low', 'medium', 'high', 'urgent'];
+                                                            // Filter out any existing priority labels to only have one
+                                                            const otherLabels = (card.labels || []).filter(l => !priorityPresets.includes(l.text));
+                                                            const newLabels = [...otherLabels, { id: preset.id, text: preset.text, color: preset.color }];
+
+                                                            updateCard(card.id, {
+                                                                labels: newLabels,
+                                                                priority: preset.text // Synchronize priority property
+                                                            });
                                                         }}
                                                     >
                                                         <div className={cn("w-2 h-2 rounded-full", preset.color.split(' ')[0])} />
