@@ -1,30 +1,50 @@
-# Modern Kanban Pro: Multi-Board Task Management
+# 🚀 Flow Board: Mi plataforma personalizada de gestión de tareas
 
-**Modern Kanban Pro** es una plataforma avanzada de gestión de tareas inspirada en Trello, diseñada para ofrecer una experiencia de usuario fluida, altamente visual y productiva. Este proyecto no es solo un clon básico; integra funcionalidades empresariales y una estética de diseño premium que lo posicionan como una herramienta robusta para la organización personal y de equipos.
+¡Hola! 👋 Te presento Flow Board, un proyecto personal que he diseñado para llevar la organización de tareas al siguiente nivel. Inspirado en la metodología Kanban y herramientas como Trello, he creado esta plataforma buscando un equilibrio entre una estética premium y una funcionalidad robusta.
 
-### 🚀 Características Principales
+Este proyecto es el resultado de querer construir una herramienta que yo mismo usaría para gestionar mis flujos de trabajo, cuidando cada detalle visual y técnico.
 
-*   **Sistema Multi-Tablero:** Gestión de múltiples proyectos de forma independiente. Los usuarios pueden crear, editar y eliminar tableros personalizados.
-*   **Drag & Drop de Alto Rendimiento:** Implementado con `@dnd-kit`, el sistema permite reordenar tarjetas y columnas con transiciones suaves.
-*   **Tarjetas Avanzadas:**
-    *   **Checklists Funcionales:** Seguimiento de subtareas con barra de progreso.
-    *   **Historial de Actividad:** Log detallado de cambios (creación, movimientos, ediciones).
-    *   **Personalización Visual:** Selector de colores para el fondo de las tarjetas.
-    *   **Gestión de Prioridades:** Sistema dinámico para asignar estados (Low, Medium, High, Urgent).
-*   **UI/UX Premium:** Enfoque en estética moderna (glassmorphism, animaciones fluidas y efectos de elevación). Incluye modo oscuro y diseño responsivo.
+🔗 ¡Pruébala en vivo!
+La aplicación ya está desplegada y lista para usar aquí:
+👉 https://flow-boardtrello.vercel.app
 
-### 🛠️ Stack Tecnológico
+✨ ¿Qué hace a Flow Board diferente?
+Gestión Multi-Tablero: Puedo organizar diferentes áreas de mi vida o proyectos de trabajo en tableros totalmente independientes.
 
-*   **Frontend:** React 19 + Vite.
-*   **Estado:** Zustand (persistente).
-*   **Estilos:** Tailwind CSS + Radix UI.
-*   **Tipado:** TypeScript.
+Experiencia "Flow" (Drag & Drop): Gracias a @dnd-kit, mover las tarjetas entre columnas es increíblemente fluido, con animaciones que hacen que gestionar tareas sea satisfactorio.
 
-### 🔧 Instalación y Uso
+Tarjetas Inteligentes:
 
-1. Cloona el repositorio.
-2. Instala las dependencias: `npm install`.
-3. Inicia el servidor de desarrollo: `npm run dev`.
+Checklists: Control total sobre las subtareas con una barra de progreso visual.
 
----
-Autor: [MarcosMartdomg](https://github.com/MarcosMartdomg)
+Prioridades Dinámicas: Etiquetas para identificar rápidamente qué es urgente (Low, Medium, High, Urgent).
+
+Historial de Actividad: Registro de cada movimiento o cambio realizado en las tarjetas.
+
+Diseño de Vanguardia: He aplicado un estilo moderno basado en Glassmorphism, con efectos de elevación y un modo oscuro que se adapta perfectamente a cualquier dispositivo.
+
+🛠️ Mi Stack Tecnológico
+Elegí estas tecnologías para asegurar que la app sea rápida, segura y escalable:
+
+Frontend: React 19 + Vite (para una carga casi instantánea).
+
+Gestión de Estado: Zustand (manteniendo los datos sincronizados de forma eficiente).
+
+Estilos: Tailwind CSS + Radix UI (para un diseño limpio y accesible).
+
+Infraestructura: Supabase para la base de datos y autenticación.
+
+Tipado: TypeScript para garantizar la robustez del código.
+
+🔧 Instalación en local
+Si quieres explorar el código fuente:
+
+Clona el repositorio.
+
+Instala las dependencias: npm install.
+
+Configura tus llaves de Supabase en un archivo .env.
+
+Ejecuta el entorno de desarrollo: npm run dev.
+
+Creado con dedicación por Marcos Martdomg 👨‍💻
