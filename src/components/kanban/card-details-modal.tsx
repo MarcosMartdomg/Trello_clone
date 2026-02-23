@@ -29,9 +29,11 @@ import {
     Activity,
     MoreHorizontal,
     Clock,
-    Plus
+    Plus,
+    GripVertical
 } from "lucide-react"
-import type { KanbanCard } from "@/lib/kanban-data"
+import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd"
+import type { KanbanCard, ChecklistItem } from "@/lib/kanban-data"
 import { useKanbanStore } from "@/lib/store"
 import { cn } from "@/lib/utils"
 import { ConfirmDeleteModal } from "./confirm-delete-modal"
@@ -72,6 +74,8 @@ export function CardDetailsModal({ card, columnTitle, isOpen, onClose, isReadOnl
     const [newLabelName, setNewLabelName] = useState("")
     const [selectedLabelColor, setSelectedLabelColor] = useState("bg-primary")
     const [isOpenLabelPopover, setIsOpenLabelPopover] = useState(false)
+    const [editingItemId, setEditingItemId] = useState<string | null>(null)
+    const [editingText, setEditingText] = useState("")
 
     const activeBoard = boards.find(b => b.id === activeBoardId)
     const boardMembers = activeBoard?.members || []
@@ -125,6 +129,24 @@ export function CardDetailsModal({ card, columnTitle, isOpen, onClose, isReadOnl
     const deleteChecklistItem = (itemId: string) => {
         const newChecklist = card.checklist.filter(item => item.id !== itemId)
         updateCard(card.id, { checklist: newChecklist })
+    }
+
+    const updateChecklistItem = (itemId: string, newText: string) => {
+        const newChecklist = card.checklist.map(item =>
+            item.id === itemId ? { ...item, text: newText } : item
+        )
+        updateCard(card.id, { checklist: newChecklist })
+        setEditingItemId(null)
+    }
+
+    const onChecklistDragEnd = (result: DropResult) => {
+        if (!result.destination) return
+
+        const items = Array.from(card.checklist || [])
+        const [reorderedItem] = items.splice(result.source.index, 1)
+        items.splice(result.destination.index, 0, reorderedItem)
+
+        updateCard(card.id, { checklist: items })
     }
 
     // Color logic
@@ -405,57 +427,114 @@ export function CardDetailsModal({ card, columnTitle, isOpen, onClose, isReadOnl
                                         </div>
                                     </div>
 
-                                    <div className="space-y-1">
-                                        {card.checklist?.map((item) => (
-                                            <div key={item.id} className="group flex items-center gap-3 p-2 hover:bg-secondary/30 rounded-xl transition-all">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={item.completed}
-                                                    onChange={() => !isReadOnly && toggleChecklistItem(item.id)}
-                                                    disabled={isReadOnly}
-                                                    className={cn(
-                                                        "w-4 h-4 rounded border-border text-primary focus:ring-0 cursor-pointer accent-primary",
-                                                        isReadOnly && "cursor-default opacity-50"
-                                                    )}
-                                                />
-                                                <span className={cn(
-                                                    "text-sm font-medium flex-1 transition-all",
-                                                    item.completed ? "text-muted-foreground line-through opacity-70" : "text-foreground"
-                                                )}>
-                                                    {item.text}
-                                                </span>
-                                                {!isReadOnly && (
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive/10 hover:text-destructive rounded-lg"
-                                                        onClick={() => deleteChecklistItem(item.id)}
-                                                    >
-                                                        <Trash2 className="h-3.5 w-3.5" />
-                                                    </Button>
-                                                )}
-                                            </div>
-                                        ))}
-
-                                        {!isReadOnly && (
-                                            <div className="pt-2 flex gap-2">
-                                                <Input
-                                                    value={newChecklistItem}
-                                                    onChange={(e) => setNewChecklistItem(e.target.value)}
-                                                    placeholder={t('board.addItem')}
-                                                    onKeyDown={(e) => e.key === 'Enter' && addChecklistItem()}
-                                                    className="h-9 text-xs bg-secondary/10 border-border/30 focus-visible:ring-primary/20 rounded-xl px-4"
-                                                />
-                                                <Button
-                                                    onClick={addChecklistItem}
-                                                    size="sm"
-                                                    className="h-9 px-4 rounded-xl font-bold text-xs"
+                                    <DragDropContext onDragEnd={onChecklistDragEnd}>
+                                        <Droppable droppableId="checklist">
+                                            {(provided) => (
+                                                <div
+                                                    {...provided.droppableProps}
+                                                    ref={provided.innerRef}
+                                                    className="space-y-1"
                                                 >
-                                                    {t('board.add')}
-                                                </Button>
-                                            </div>
-                                        )}
-                                    </div>
+                                                    {card.checklist?.map((item, index) => (
+                                                        <Draggable
+                                                            key={item.id}
+                                                            draggableId={item.id}
+                                                            index={index}
+                                                            isDragDisabled={isReadOnly}
+                                                        >
+                                                            {(provided, snapshot) => (
+                                                                <div
+                                                                    ref={provided.innerRef}
+                                                                    {...provided.draggableProps}
+                                                                    className={cn(
+                                                                        "group flex items-center gap-3 p-2 hover:bg-secondary/30 rounded-xl transition-all",
+                                                                        snapshot.isDragging && "bg-secondary shadow-lg ring-1 ring-primary/20"
+                                                                    )}
+                                                                >
+                                                                    {!isReadOnly && (
+                                                                        <div
+                                                                            {...provided.dragHandleProps}
+                                                                            className="cursor-grab active:cursor-grabbing text-muted-foreground/30 hover:text-muted-foreground transition-colors"
+                                                                        >
+                                                                            <GripVertical className="h-4 w-4" />
+                                                                        </div>
+                                                                    )}
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={item.completed}
+                                                                        onChange={() => !isReadOnly && toggleChecklistItem(item.id)}
+                                                                        disabled={isReadOnly}
+                                                                        className={cn(
+                                                                            "w-4 h-4 rounded border-border text-primary focus:ring-0 cursor-pointer accent-primary",
+                                                                            isReadOnly && "cursor-default opacity-50"
+                                                                        )}
+                                                                    />
+                                                                    {editingItemId === item.id ? (
+                                                                        <Input
+                                                                            autoFocus
+                                                                            value={editingText}
+                                                                            onChange={(e) => setEditingText(e.target.value)}
+                                                                            onBlur={() => updateChecklistItem(item.id, editingText)}
+                                                                            onKeyDown={(e) => {
+                                                                                if (e.key === 'Enter') updateChecklistItem(item.id, editingText)
+                                                                                if (e.key === 'Escape') setEditingItemId(null)
+                                                                            }}
+                                                                            className="h-7 text-sm bg-background border-primary/30 focus-visible:ring-primary/20 rounded-lg px-2 flex-1"
+                                                                        />
+                                                                    ) : (
+                                                                        <span
+                                                                            onClick={() => {
+                                                                                if (!isReadOnly) {
+                                                                                    setEditingItemId(item.id)
+                                                                                    setEditingText(item.text)
+                                                                                }
+                                                                            }}
+                                                                            className={cn(
+                                                                                "text-sm font-medium flex-1 transition-all cursor-text",
+                                                                                item.completed ? "text-muted-foreground line-through opacity-70" : "text-foreground"
+                                                                            )}
+                                                                        >
+                                                                            {item.text}
+                                                                        </span>
+                                                                    )}
+                                                                    {!isReadOnly && (
+                                                                        <Button
+                                                                            variant="ghost"
+                                                                            size="icon"
+                                                                            className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive/10 hover:text-destructive rounded-lg"
+                                                                            onClick={() => deleteChecklistItem(item.id)}
+                                                                        >
+                                                                            <Trash2 className="h-3.5 w-3.5" />
+                                                                        </Button>
+                                                                    )}
+                                                                </div>
+                                                            )}
+                                                        </Draggable>
+                                                    ))}
+                                                    {provided.placeholder}
+
+                                                    {!isReadOnly && (
+                                                        <div className="pt-2 flex gap-2">
+                                                            <Input
+                                                                value={newChecklistItem}
+                                                                onChange={(e) => setNewChecklistItem(e.target.value)}
+                                                                placeholder={t('board.addItem')}
+                                                                onKeyDown={(e) => e.key === 'Enter' && addChecklistItem()}
+                                                                className="h-9 text-xs bg-secondary/10 border-border/30 focus-visible:ring-primary/20 rounded-xl px-4"
+                                                            />
+                                                            <Button
+                                                                onClick={addChecklistItem}
+                                                                size="sm"
+                                                                className="h-9 px-4 rounded-xl font-bold text-xs"
+                                                            >
+                                                                {t('board.add')}
+                                                            </Button>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </Droppable>
+                                    </DragDropContext>
                                 </div>
                             </div>
                         )}

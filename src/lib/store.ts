@@ -417,8 +417,8 @@ export const useKanbanStore = create<KanbanState>()(
                         await api.logActivity(activeId, user.id, '', 'move', { from: sourceTitle, to: destTitle });
                     }
 
-                    // Fetch to ensure sync
-                    await get().fetchBoards(user.id);
+                    // Fetch to ensure sync is optional here if optimistic is reliable
+                    // await get().fetchBoards(user.id);
                 } catch (error) {
                     console.error('Error moving card:', error);
                     set({ boards: previousBoards });
@@ -444,8 +444,26 @@ export const useKanbanStore = create<KanbanState>()(
             },
 
             updateCard: async (cardId, updates) => {
+                const previousBoards = get().boards;
+
+                // Optimistic update
+                const newBoards = previousBoards.map(board => {
+                    if (board.id !== get().activeBoardId) return board;
+                    return {
+                        ...board,
+                        columns: board.columns.map(col => ({
+                            ...col,
+                            cards: col.cards.map(card =>
+                                card.id === cardId ? { ...card, ...updates } : card
+                            )
+                        }))
+                    };
+                });
+
+                set({ boards: newBoards });
+
                 try {
-                    const allCards = get().boards.flatMap(b => b.columns.flatMap(c => c.cards));
+                    const allCards = previousBoards.flatMap(b => b.columns.flatMap(c => c.cards));
                     const originalCard = allCards.find(c => c.id === cardId);
 
                     await api.updateCard(cardId, updates);
@@ -458,10 +476,12 @@ export const useKanbanStore = create<KanbanState>()(
                         if (updates.description !== undefined && updates.description !== originalCard.description) {
                             await api.logActivity(cardId, user.id, 'Editó la descripción', 'edit');
                         }
-                        await get().fetchBoards(user.id);
+                        // Don't refetch everything if it's just a simple detail update
+                        // await get().fetchBoards(user.id);
                     }
                 } catch (error) {
                     console.error('Error updating card:', error);
+                    set({ boards: previousBoards });
                 }
             },
 
