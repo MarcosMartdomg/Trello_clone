@@ -41,9 +41,7 @@ import {
   User,
   Video
 } from "lucide-react"
-import { useDroppable } from "@dnd-kit/core"
-import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable"
-
+import { Droppable } from "@hello-pangea/dnd"
 import { cn } from "@/lib/utils"
 import type { KanbanColumn as KanbanColumnType, KanbanCard as KanbanCardType } from "@/lib/kanban-data"
 import { KanbanCard } from "./kanban-card"
@@ -119,14 +117,6 @@ export function KanbanColumnComponent({ column, isOverlay }: KanbanColumnProps) 
 
   const titleInputRef = useRef<HTMLInputElement>(null)
 
-  const { setNodeRef, isOver } = useDroppable({
-    id: column.id,
-    data: {
-      type: "Column",
-      column,
-    }
-  })
-
   useEffect(() => {
     setTitle(column.title)
   }, [column.title])
@@ -173,11 +163,9 @@ export function KanbanColumnComponent({ column, isOverlay }: KanbanColumnProps) 
 
   return (
     <div
-      ref={setNodeRef}
       className={cn(
         "flex flex-col w-[320px] shrink-0 rounded-2xl bg-column transition-all duration-200 h-fit max-h-full border border-border/50 shadow-lg shadow-black/20",
-        isOverlay && "opacity-50 ring-2 ring-primary rotate-2",
-        isOver && !isOverlay && "ring-2 ring-primary/40 bg-column/80"
+        isOverlay && "opacity-50 ring-2 ring-primary rotate-2"
       )}
     >
       {/* Column header */}
@@ -262,66 +250,76 @@ export function KanbanColumnComponent({ column, isOverlay }: KanbanColumnProps) 
       </div>
 
       {/* Cards area */}
-      <div className="flex-1 px-2 pb-2 pt-2 space-y-2 overflow-y-auto overflow-x-hidden min-h-[100px]">
-        <SortableContext items={column.cards.map((c: KanbanCardType) => c.id)} strategy={verticalListSortingStrategy}>
-          {column.cards.map((card: KanbanCardType) => (
-            <KanbanCard key={card.id} card={card} columnTitle={column.title} />
-          ))}
-        </SortableContext>
+      <Droppable droppableId={column.id} type="CARD">
+        {(provided, snapshot) => (
+          <div
+            ref={provided.innerRef}
+            {...provided.droppableProps}
+            className={cn(
+              "flex-1 px-2 pb-2 pt-2 space-y-2 overflow-y-auto overflow-x-hidden min-h-[100px] transition-colors duration-200",
+              snapshot.isDraggingOver && "bg-primary/5"
+            )}
+          >
+            {column.cards.map((card: KanbanCardType, index: number) => (
+              <KanbanCard key={card.id} card={card} columnTitle={column.title} index={index} />
+            ))}
+            {provided.placeholder}
 
-        {/* Inline add card form */}
-        {isAddingCard && (
-          <div className="rounded-xl border border-primary/30 bg-card p-3 shadow-lg animate-in fade-in zoom-in-95 duration-200">
-            <input
-              autoFocus
-              value={newCardTitle}
-              onChange={(e) => setNewCardTitle(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Escape") {
-                  setIsAddingCard(false)
-                  setNewCardTitle("")
-                }
-                if (e.key === "Enter") {
-                  handleAddCard()
-                }
-              }}
-              placeholder={t('board.taskTitle')}
-              className="w-full bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none resize-none"
-            />
-            <div className="flex items-center gap-2 mt-3 justify-end">
+            {/* Inline add card form */}
+            {isAddingCard && (
+              <div className="rounded-xl border border-primary/30 bg-card p-3 shadow-lg animate-in fade-in zoom-in-95 duration-200">
+                <input
+                  autoFocus
+                  value={newCardTitle}
+                  onChange={(e) => setNewCardTitle(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape") {
+                      setIsAddingCard(false)
+                      setNewCardTitle("")
+                    }
+                    if (e.key === "Enter") {
+                      handleAddCard()
+                    }
+                  }}
+                  placeholder={t('board.taskTitle')}
+                  className="w-full bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none resize-none"
+                />
+                <div className="flex items-center gap-2 mt-3 justify-end">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsAddingCard(false)
+                      setNewCardTitle("")
+                    }}
+                    className="px-3 py-1.5 text-xs font-medium rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                  >
+                    {t('common.cancel')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleAddCard}
+                    className="px-3 py-1.5 text-xs font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shadow-sm"
+                  >
+                    {t('board.addCard')}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Add card button */}
+            {!isAddingCard && (
               <button
                 type="button"
-                onClick={() => {
-                  setIsAddingCard(false)
-                  setNewCardTitle("")
-                }}
-                className="px-3 py-1.5 text-xs font-medium rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                onClick={() => setIsAddingCard(true)}
+                className="flex items-center gap-2 w-full px-3 py-2 rounded-xl text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent/30 transition-all duration-200 group mt-1"
               >
-                {t('common.cancel')}
+                <Plus className="w-3.5 h-3.5" />
+                <span>{t('board.addCard')}</span>
               </button>
-              <button
-                type="button"
-                onClick={handleAddCard}
-                className="px-3 py-1.5 text-xs font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shadow-sm"
-              >
-                {t('board.addCard')}
-              </button>
-            </div>
+            )}
           </div>
         )}
-
-        {/* Add card button */}
-        {!isAddingCard && (
-          <button
-            type="button"
-            onClick={() => setIsAddingCard(true)}
-            className="flex items-center gap-2 w-full px-3 py-2 rounded-xl text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent/30 transition-all duration-200 group mt-1"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>{t('board.addCard')}</span>
-          </button>
-        )}
-      </div>
+      </Droppable>
 
       <ConfirmDeleteModal
         isOpen={isDeleteModalOpen}

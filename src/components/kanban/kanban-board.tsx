@@ -3,23 +3,7 @@
 
 import { useMemo, useState, useEffect } from "react"
 import { Plus, LayoutPanelLeft, ShieldAlert, Check, X, Users } from "lucide-react"
-import {
-    DndContext,
-    DragOverlay,
-    defaultDropAnimationSideEffects,
-    DragStartEvent,
-    DragOverEvent,
-    DragEndEvent,
-    useSensor,
-    useSensors,
-    PointerSensor,
-    KeyboardSensor,
-    DropAnimation
-} from "@dnd-kit/core"
-import {
-    sortableKeyboardCoordinates
-} from "@dnd-kit/sortable"
-
+import { DragDropContext, DropResult } from "@hello-pangea/dnd"
 import { useKanbanStore } from "@/lib/store"
 import { KanbanColumnComponent } from "./kanban-column"
 import { KanbanCard } from "./kanban-card"
@@ -33,13 +17,31 @@ import type { KanbanCard as KanbanCardType, KanbanColumn as KanbanColumnType } f
 export function KanbanBoard() {
     const { boards, activeBoardId, moveCard, addColumn, searchQuery, tagFilter, createBoard, acceptInvitation, declineInvitation } = useKanbanStore()
     const { user } = useAuth()
-    const [activeColumn, setActiveColumn] = useState<KanbanColumnType | null>(null)
-    const [activeCard, setActiveCard] = useState<KanbanCardType | null>(null)
+    const onDragEnd = (result: DropResult) => {
+        const { destination, source, draggableId } = result
+
+        if (!destination) return
+
+        if (
+            destination.droppableId === source.droppableId &&
+            destination.index === source.index
+        ) {
+            return
+        }
+
+        moveCard(
+            draggableId,
+            source.droppableId,
+            destination.droppableId,
+            source.index,
+            destination.index
+        )
+    }
+
     const [isMounted, setIsMounted] = useState(false)
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
     const [isAddingColumn, setIsAddingColumn] = useState(false)
     const [newColumnTitle, setNewColumnTitle] = useState("")
-    const { t } = useTranslation()
 
     useEffect(() => {
         setIsMounted(true)
@@ -51,27 +53,12 @@ export function KanbanBoard() {
 
     const isPending = useMemo(() => {
         if (!activeBoard || !user) return false
-        // The owner is never pending
         if (activeBoard.ownerId === user.id) return false
-
-        // Find current user's member entry
         const memberEntry = activeBoard.members.find(m => m.id === user.id)
-
-        // Block access if member entry is missing OR status is not 'accepted'
-        // This covers 'pending' and any other non-accepted state
         return memberEntry?.status !== 'accepted'
     }, [activeBoard, user])
 
-    const sensors = useSensors(
-        useSensor(PointerSensor, {
-            activationConstraint: {
-                distance: 8,
-            },
-        }),
-        useSensor(KeyboardSensor, {
-            coordinateGetter: sortableKeyboardCoordinates,
-        })
-    )
+    const { t } = useTranslation()
 
     const filteredColumns = useMemo(() => {
         if (!activeBoard) return []
@@ -86,51 +73,6 @@ export function KanbanBoard() {
             })
         }))
     }, [activeBoard, searchQuery, tagFilter])
-
-    const onDragStart = (event: DragStartEvent) => {
-        if (event.active.data.current?.type === "Column") {
-            setActiveColumn(event.active.data.current.column)
-            return
-        }
-
-        if (event.active.data.current?.type === "Card") {
-            setActiveCard(event.active.data.current.card)
-            return
-        }
-    }
-
-    const onDragOver = (event: DragOverEvent) => {
-        const { active, over } = event
-        if (!over) return
-
-        const activeId = active.id
-        const overId = over.id
-
-        if (activeId === overId) return
-
-        const isActiveCard = active.data.current?.type === "Card"
-        const isOverCard = over.data.current?.type === "Card"
-        const isOverColumn = over.data.current?.type === "Column"
-
-        if (isActiveCard && (isOverCard || isOverColumn)) {
-            moveCard(String(activeId), String(overId))
-        }
-    }
-
-    const onDragEnd = (event: DragEndEvent) => {
-        setActiveColumn(null)
-        setActiveCard(null)
-    }
-
-    const dropAnimation: DropAnimation = {
-        sideEffects: defaultDropAnimationSideEffects({
-            styles: {
-                active: {
-                    opacity: "0.5",
-                },
-            },
-        }),
-    }
 
     if (!isMounted) return null
 
@@ -202,12 +144,7 @@ export function KanbanBoard() {
         <div className="flex flex-1 flex-col h-full bg-background/50">
             <TagFilters />
 
-            <DndContext
-                sensors={sensors}
-                onDragStart={onDragStart}
-                onDragOver={onDragOver}
-                onDragEnd={onDragEnd}
-            >
+            <DragDropContext onDragEnd={onDragEnd}>
                 <div className="flex gap-4 overflow-x-auto flex-1 items-start p-6 scrollbar-thin scrollbar-thumb-sidebar-border scrollbar-track-transparent">
                     {filteredColumns.map((column) => (
                         <KanbanColumnComponent key={column.id} column={column} />
@@ -271,22 +208,13 @@ export function KanbanBoard() {
                         </button>
                     )}
                 </div>
-
-                <DragOverlay dropAnimation={dropAnimation}>
-                    {activeCard && (
-                        <KanbanCard card={activeCard} columnTitle="" />
-                    )}
-                    {activeColumn && (
-                        <KanbanColumnComponent column={activeColumn} isOverlay />
-                    )}
-                </DragOverlay>
-            </DndContext>
+            </DragDropContext>
 
             <CreateBoardModal
                 isOpen={isCreateModalOpen}
                 onClose={() => setIsCreateModalOpen(false)}
                 onCreate={(name) => createBoard(name, user!.id)}
             />
-        </div>
+        </div >
     )
 }

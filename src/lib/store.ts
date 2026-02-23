@@ -38,7 +38,7 @@ interface KanbanState {
     addNotification: (notification: any) => void;
     removeNotification: (id: string) => void;
 
-    moveCard: (activeId: string, overId: string) => Promise<void>;
+    moveCard: (activeId: string, sourceColumnId: string, destinationColumnId: string, sourceIndex: number, destinationIndex: number) => Promise<void>;
     addCard: (columnId: string, card: Partial<KanbanCard>) => Promise<void>;
     updateCard: (cardId: string, updates: Partial<KanbanCard>) => Promise<void>;
     deleteCard: (cardId: string) => Promise<void>;
@@ -369,38 +369,59 @@ export const useKanbanStore = create<KanbanState>()(
                 activeNotifications: state.activeNotifications.filter(n => n.id !== id)
             })),
 
-            moveCard: async (activeId, overId) => {
+            moveCard: async (activeId, sourceColumnId, destinationColumnId, sourceIndex, destinationIndex) => {
                 const { user } = (await supabase.auth.getUser()).data;
                 if (!user) return;
 
-                const allCards = get().boards.flatMap(b => b.columns.flatMap(c => c.cards));
-                const activeCard = allCards.find(c => c.id === activeId);
-                const overCard = allCards.find(c => c.id === overId);
-                const overColumn = get().boards.flatMap(b => b.columns).find(c => c.id === overId);
+                const previousBoards = get().boards;
+                const activeBoard = previousBoards.find(b => b.id === get().activeBoardId);
+                if (!activeBoard) return;
 
-                if (!activeCard || (!overCard && !overColumn)) return;
+                // Optimistic update
+                const newBoards = previousBoards.map(board => {
+                    if (board.id !== get().activeBoardId) return board;
 
-                const newColumnId = overColumn ? overColumn.id : (overCard?.columnId || '');
-                const newPosition = overColumn ? 0 : (overCard?.order || 0) + 1;
+                    const newColumns = board.columns.map(col => {
+                        const newCards = [...col.cards];
+                        if (col.id === sourceColumnId) {
+                            const [movedCard] = newCards.splice(sourceIndex, 1);
+                            if (col.id === destinationColumnId) {
+                                newCards.splice(destinationIndex, 0, movedCard);
+                            }
+                            return { ...col, cards: newCards.map((c, i) => ({ ...c, order: i })) };
+                        }
+                        if (col.id === destinationColumnId) {
+                            const sourceCol = board.columns.find(c => c.id === sourceColumnId);
+                            const movedCard = sourceCol?.cards[sourceIndex];
+                            if (movedCard) {
+                                newCards.splice(destinationIndex, 0, { ...movedCard, columnId: destinationColumnId });
+                            }
+                            return { ...col, cards: newCards.map((c, i) => ({ ...c, order: i })) };
+                        }
+                        return col;
+                    });
 
-                if (!newColumnId) return;
+                    return { ...board, columns: newColumns };
+                });
+
+                set({ boards: newBoards });
 
                 try {
-                    await api.moveCard(activeId, newColumnId, newPosition);
+                    // Update server - we just send the new position and column
+                    await api.moveCard(activeId, destinationColumnId, destinationIndex);
 
-                    const oldColumn = get().boards.flatMap(b => b.columns).find(c => c.id === activeCard.columnId);
-                    const newColumn = get().boards.flatMap(b => b.columns).find(c => c.id === newColumnId);
-
-                    if (oldColumn && newColumn && oldColumn.id !== newColumn.id) {
-                        await api.logActivity(activeId, user.id, '', 'move', {
-                            from: oldColumn.title,
-                            to: newColumn.title
-                        });
+                    // If columns changed, log activity
+                    if (sourceColumnId !== destinationColumnId) {
+                        const sourceTitle = activeBoard.columns.find(c => c.id === sourceColumnId)?.title || '';
+                        const destTitle = activeBoard.columns.find(c => c.id === destinationColumnId)?.title || '';
+                        await api.logActivity(activeId, user.id, '', 'move', { from: sourceTitle, to: destTitle });
                     }
 
+                    // Fetch to ensure sync
                     await get().fetchBoards(user.id);
                 } catch (error) {
                     console.error('Error moving card:', error);
+                    set({ boards: previousBoards });
                 }
             },
 
