@@ -16,6 +16,8 @@ interface KanbanState {
     invitations: any[];
     activeNotifications: any[];
     pendingRemovals: Set<string>;
+    sortBy: 'date' | 'priority' | null;
+    memberFilter: string[];
 
     // Actions
     setCurrentView: (view: 'board' | 'my-tasks' | 'boards-list' | 'calendar' | 'inbox') => void;
@@ -58,6 +60,9 @@ interface KanbanState {
     clearPriorityFilters: () => void;
     clearTagFilters: () => void;
     setLanguage: (lang: 'es' | 'en') => void;
+    setSortBy: (sort: 'date' | 'priority' | null) => void;
+    toggleMemberFilter: (userId: string) => void;
+    clearMemberFilters: () => void;
 }
 
 export const useKanbanStore = create<KanbanState>()(
@@ -74,6 +79,8 @@ export const useKanbanStore = create<KanbanState>()(
             invitations: [],
             activeNotifications: [],
             pendingRemovals: new Set(),
+            sortBy: null,
+            memberFilter: [],
 
             setCurrentView: (view: 'board' | 'my-tasks' | 'boards-list' | 'calendar' | 'inbox') => set({ currentView: view }),
             setSearchOpen: (isOpen: boolean) => set({ isSearchOpen: isOpen }),
@@ -113,6 +120,7 @@ export const useKanbanStore = create<KanbanState>()(
                                 labels: card.labels || card.tags || [],
                                 color: card.color,
                                 due_date: card.due_date,
+                                createdAt: card.created_at,
                                 checklist: card.checklist || [],
                                 members: card.card_members?.map((cm: any) => ({
                                     id: cm.user_id,
@@ -630,12 +638,12 @@ export const useKanbanStore = create<KanbanState>()(
 
             updateColumn: async (columnId, updates) => {
                 const previousBoards = get().boards;
-                
+
                 // Optimistic update
                 set((state) => ({
                     boards: state.boards.map(board => ({
                         ...board,
-                        columns: board.columns.map(col => 
+                        columns: board.columns.map(col =>
                             col.id === columnId ? { ...col, ...updates } : col
                         )
                     }))
@@ -680,6 +688,13 @@ export const useKanbanStore = create<KanbanState>()(
             clearPriorityFilters: () => set({ priorityFilter: [] }),
             clearTagFilters: () => set({ tagFilter: [] }),
             setLanguage: (lang: 'es' | 'en') => set({ language: lang }),
+            setSortBy: (sort: 'date' | 'priority' | null) => set({ sortBy: sort }),
+            toggleMemberFilter: (userId: string) => set((state) => ({
+                memberFilter: state.memberFilter.includes(userId)
+                    ? state.memberFilter.filter(id => id !== userId)
+                    : [...state.memberFilter, userId]
+            })),
+            clearMemberFilters: () => set({ memberFilter: [] }),
         }),
         {
             name: 'kanban-storage-vite',

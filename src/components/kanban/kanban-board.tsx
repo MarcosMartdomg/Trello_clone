@@ -15,7 +15,7 @@ import { useAuth } from "@/components/auth/auth-provider"
 import type { KanbanCard as KanbanCardType, KanbanColumn as KanbanColumnType } from "@/lib/kanban-data"
 
 export function KanbanBoard() {
-    const { boards, activeBoardId, moveCard, addColumn, searchQuery, tagFilter, createBoard, acceptInvitation, declineInvitation } = useKanbanStore()
+    const { boards, activeBoardId, moveCard, addColumn, searchQuery, tagFilter, priorityFilter, memberFilter, sortBy, createBoard, acceptInvitation, declineInvitation } = useKanbanStore()
     const { user } = useAuth()
     const onDragEnd = (result: DropResult) => {
         const { destination, source, draggableId } = result
@@ -62,17 +62,44 @@ export function KanbanBoard() {
 
     const filteredColumns = useMemo(() => {
         if (!activeBoard) return []
-        return activeBoard.columns.map((col) => ({
-            ...col,
-            cards: col.cards.filter((card) => {
+
+        const priorityOrder: Record<string, number> = {
+            urgent: 0,
+            high: 1,
+            medium: 2,
+            low: 3
+        };
+
+        return activeBoard.columns.map((col) => {
+            const cards = col.cards.filter((card) => {
                 const matchesSearch = card.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                     card.description.toLowerCase().includes(searchQuery.toLowerCase());
                 const matchesTags = tagFilter.length === 0 ||
                     card.labels.some(l => tagFilter.includes(l.text));
-                return matchesSearch && matchesTags;
-            })
-        }))
-    }, [activeBoard, searchQuery, tagFilter])
+                const matchesPriority = priorityFilter.length === 0 ||
+                    priorityFilter.includes(card.priority);
+                const matchesMembers = memberFilter.length === 0 ||
+                    card.members.some(m => memberFilter.includes(m.id));
+                return matchesSearch && matchesTags && matchesPriority && matchesMembers;
+            });
+
+            // Sorting logic
+            if (sortBy === 'priority') {
+                cards.sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority]);
+            } else if (sortBy === 'date') {
+                cards.sort((a, b) => {
+                    const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+                    const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+                    return dateB - dateA; // Newest first
+                });
+            }
+
+            return {
+                ...col,
+                cards
+            };
+        })
+    }, [activeBoard, searchQuery, tagFilter, priorityFilter, memberFilter, sortBy])
 
     if (!isMounted) return null
 

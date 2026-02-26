@@ -23,7 +23,9 @@ export function BoardHeader() {
         searchQuery, setSearchQuery, boards, activeBoardId,
         language, setLanguage, currentView,
         priorityFilter, togglePriorityFilter, clearPriorityFilters,
-        tagFilter, toggleTagFilter, clearTagFilters
+        tagFilter, toggleTagFilter, clearTagFilters,
+        sortBy, setSortBy,
+        memberFilter, toggleMemberFilter, clearMemberFilters
     } = useKanbanStore()
     const { theme, setTheme } = useTheme()
     const { t } = useTranslation()
@@ -235,17 +237,60 @@ export function BoardHeader() {
                                 ) : (
                                     <>
                                         <DropdownMenuLabel>{t('filters.sortBy')}</DropdownMenuLabel>
-                                        <DropdownMenuItem>
-                                            <Calendar className="mr-2 h-4 w-4 text-muted-foreground" />
-                                            <span>{t('filters.date')}</span>
+                                        <DropdownMenuItem
+                                            onClick={() => setSortBy(sortBy === 'date' ? null : 'date')}
+                                            className="flex items-center gap-2 cursor-pointer"
+                                        >
+                                            <Calendar className="h-4 w-4 text-muted-foreground transition-colors group-hover:text-primary" />
+                                            <span className="flex-1 font-bold">{t('filters.date')}</span>
+                                            {sortBy === 'date' && <Check className="w-4 h-4 text-primary" />}
                                         </DropdownMenuItem>
-                                        <DropdownMenuItem>
-                                            <ArrowUp className="mr-2 h-4 w-4 text-muted-foreground" />
-                                            <span>{t('filters.priority')}</span>
+                                        <DropdownMenuItem
+                                            onClick={() => setSortBy(sortBy === 'priority' ? null : 'priority')}
+                                            className="flex items-center gap-2 cursor-pointer"
+                                        >
+                                            <ArrowUp className="h-4 w-4 text-muted-foreground transition-colors group-hover:text-primary" />
+                                            <span className="flex-1 font-bold">{t('filters.priority')}</span>
+                                            {sortBy === 'priority' && <Check className="w-4 h-4 text-primary" />}
                                         </DropdownMenuItem>
                                         <DropdownMenuSeparator />
-                                        <DropdownMenuItem className="text-red-500 focus:text-red-500">
-                                            <X className="mr-2 h-4 w-4" />
+                                        <DropdownMenuLabel className="text-[10px] font-black uppercase tracking-widest text-muted-foreground px-2 py-2">
+                                            {t('header.members')}
+                                        </DropdownMenuLabel>
+                                        {activeBoard?.members?.map((member) => (
+                                            <DropdownMenuItem
+                                                key={member.id}
+                                                onClick={(e) => {
+                                                    e.preventDefault()
+                                                    toggleMemberFilter(member.id)
+                                                }}
+                                                className="flex items-center gap-3 px-2 py-2.5 rounded-xl cursor-pointer focus:bg-primary/10 transition-colors group"
+                                            >
+                                                <Avatar className="h-6 w-6 border-2 border-background ring-1 ring-border/50">
+                                                    <AvatarFallback className={cn("text-[8px] font-black text-white", member.color)}>
+                                                        {member.avatar}
+                                                    </AvatarFallback>
+                                                </Avatar>
+                                                <span className="text-xs font-bold flex-1 text-foreground">{member.name}</span>
+                                                {memberFilter.includes(member.id) && (
+                                                    <div className="w-4 h-4 rounded-full bg-primary flex items-center justify-center">
+                                                        <Check className="w-2.5 h-2.5 text-primary-foreground" />
+                                                    </div>
+                                                )}
+                                            </DropdownMenuItem>
+                                        ))}
+
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem
+                                            onClick={() => {
+                                                clearPriorityFilters()
+                                                clearTagFilters()
+                                                clearMemberFilters()
+                                                setSortBy(null)
+                                            }}
+                                            className="text-red-500 focus:text-red-500 font-bold flex items-center gap-2 cursor-pointer"
+                                        >
+                                            <X className="h-4 w-4" />
                                             <span>{t('filters.clearFilters')}</span>
                                         </DropdownMenuItem>
                                     </>

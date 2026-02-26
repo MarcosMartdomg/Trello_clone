@@ -84,6 +84,7 @@ export const api = {
                     color,
                     due_date,
                     position,
+                    created_at,
                     labels,
                     checklist,
                     card_members (
