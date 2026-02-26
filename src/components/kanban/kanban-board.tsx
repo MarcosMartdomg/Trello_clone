@@ -86,11 +86,17 @@ export function KanbanBoard() {
             // Sorting logic
             if (sortBy === 'priority') {
                 cards.sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority]);
-            } else if (sortBy === 'date') {
+            } else if (sortBy === 'newest') {
                 cards.sort((a, b) => {
                     const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
                     const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
                     return dateB - dateA; // Newest first
+                });
+            } else if (sortBy === 'oldest') {
+                cards.sort((a, b) => {
+                    const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+                    const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+                    return dateA - dateB; // Oldest first
                 });
             }
 

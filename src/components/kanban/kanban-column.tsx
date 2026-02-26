@@ -106,7 +106,7 @@ interface KanbanColumnProps {
 }
 
 export function KanbanColumnComponent({ column, isOverlay }: KanbanColumnProps) {
-  const { addCard, updateColumn, deleteColumn } = useKanbanStore()
+  const { addCard, updateColumn, deleteColumn, sortBy } = useKanbanStore()
   const [isAddingCard, setIsAddingCard] = useState(false)
   const [newCardTitle, setNewCardTitle] = useState("")
   const [isEditingTitle, setIsEditingTitle] = useState(false)
@@ -260,9 +260,52 @@ export function KanbanColumnComponent({ column, isOverlay }: KanbanColumnProps) 
               snapshot.isDraggingOver && "bg-primary/5"
             )}
           >
-            {column.cards.map((card: KanbanCardType, index: number) => (
-              <KanbanCard key={card.id} card={card} columnTitle={column.title} index={index} />
-            ))}
+            {(() => {
+              if (sortBy !== 'newest' && sortBy !== 'oldest') {
+                return column.cards.map((card: KanbanCardType, index: number) => (
+                  <KanbanCard key={card.id} card={card} columnTitle={column.title} index={index} />
+                ))
+              }
+
+              // Grouping logic for date sorting
+              const groups: { dateLabel: string; cards: KanbanCardType[] }[] = [];
+              column.cards.forEach((card) => {
+                const date = card.createdAt ? new Date(card.createdAt) : new Date(0);
+                const isToday = date.toDateString() === new Date().toDateString();
+                const isYesterday = date.toDateString() === new Date(Date.now() - 86400000).toDateString();
+
+                let dateLabel = "";
+                if (card.createdAt) {
+                  if (isToday) dateLabel = t('common.today') || "Hoy";
+                  else if (isYesterday) dateLabel = t('common.yesterday') || "Ayer";
+                  else {
+                    dateLabel = date.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+                  }
+                } else {
+                  dateLabel = t('common.noDate') || "Sin fecha";
+                }
+
+                const lastGroup = groups[groups.length - 1];
+                if (lastGroup && lastGroup.dateLabel === dateLabel) {
+                  lastGroup.cards.push(card);
+                } else {
+                  groups.push({ dateLabel, cards: [card] });
+                }
+              });
+
+              return groups.map((group, groupIdx) => (
+                <React.Fragment key={group.dateLabel}>
+                  <div className="flex items-center gap-2 px-1 py-1 mt-2 mb-1 first:mt-0">
+                    <div className="h-px bg-border flex-1" />
+                    <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/50">{group.dateLabel}</span>
+                    <div className="h-px bg-border flex-1" />
+                  </div>
+                  {group.cards.map((card, index) => (
+                    <KanbanCard key={card.id} card={card} columnTitle={column.title} index={index} />
+                  ))}
+                </React.Fragment>
+              ));
+            })()}
             {provided.placeholder}
 
             {/* Inline add card form */}

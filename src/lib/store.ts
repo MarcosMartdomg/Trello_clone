@@ -16,7 +16,7 @@ interface KanbanState {
     invitations: any[];
     activeNotifications: any[];
     pendingRemovals: Set<string>;
-    sortBy: 'date' | 'priority' | null;
+    sortBy: 'newest' | 'oldest' | 'priority' | null;
     memberFilter: string[];
 
     // Actions
@@ -60,7 +60,7 @@ interface KanbanState {
     clearPriorityFilters: () => void;
     clearTagFilters: () => void;
     setLanguage: (lang: 'es' | 'en') => void;
-    setSortBy: (sort: 'date' | 'priority' | null) => void;
+    setSortBy: (sort: 'newest' | 'oldest' | 'priority' | null) => void;
     toggleMemberFilter: (userId: string) => void;
     clearMemberFilters: () => void;
 }
@@ -688,7 +688,7 @@ export const useKanbanStore = create<KanbanState>()(
             clearPriorityFilters: () => set({ priorityFilter: [] }),
             clearTagFilters: () => set({ tagFilter: [] }),
             setLanguage: (lang: 'es' | 'en') => set({ language: lang }),
-            setSortBy: (sort: 'date' | 'priority' | null) => set({ sortBy: sort }),
+            setSortBy: (sort: 'newest' | 'oldest' | 'priority' | null) => set({ sortBy: sort }),
             toggleMemberFilter: (userId: string) => set((state) => ({
                 memberFilter: state.memberFilter.includes(userId)
                     ? state.memberFilter.filter(id => id !== userId)

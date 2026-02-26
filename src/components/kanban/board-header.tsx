@@ -238,12 +238,20 @@ export function BoardHeader() {
                                     <>
                                         <DropdownMenuLabel>{t('filters.sortBy')}</DropdownMenuLabel>
                                         <DropdownMenuItem
-                                            onClick={() => setSortBy(sortBy === 'date' ? null : 'date')}
+                                            onClick={() => setSortBy(sortBy === 'newest' ? null : 'newest')}
                                             className="flex items-center gap-2 cursor-pointer"
                                         >
                                             <Calendar className="h-4 w-4 text-muted-foreground transition-colors group-hover:text-primary" />
-                                            <span className="flex-1 font-bold">{t('filters.date')}</span>
-                                            {sortBy === 'date' && <Check className="w-4 h-4 text-primary" />}
+                                            <span className="flex-1 font-bold">{t('filters.newest') || "Más nuevo a más antiguo"}</span>
+                                            {sortBy === 'newest' && <Check className="w-4 h-4 text-primary" />}
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem
+                                            onClick={() => setSortBy(sortBy === 'oldest' ? null : 'oldest')}
+                                            className="flex items-center gap-2 cursor-pointer"
+                                        >
+                                            <Calendar className="h-4 w-4 text-muted-foreground transition-colors group-hover:text-primary" />
+                                            <span className="flex-1 font-bold">{t('filters.oldest') || "Más antiguo a más nuevo"}</span>
+                                            {sortBy === 'oldest' && <Check className="w-4 h-4 text-primary" />}
                                         </DropdownMenuItem>
                                         <DropdownMenuItem
                                             onClick={() => setSortBy(sortBy === 'priority' ? null : 'priority')}
