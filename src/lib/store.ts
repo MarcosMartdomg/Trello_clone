@@ -100,6 +100,7 @@ export const useKanbanStore = create<KanbanState>()(
                         columns: b.columns?.map((c: any) => ({
                             id: c.id,
                             title: c.title,
+                            icon: c.icon || 'circle',
                             boardId: c.board_id,
                             order: c.position,
                             cards: c.cards?.map((card: any) => ({
@@ -470,14 +471,52 @@ export const useKanbanStore = create<KanbanState>()(
                     const { user } = (await supabase.auth.getUser()).data;
 
                     if (user && originalCard) {
+                        // Title Changes
                         if (updates.title && updates.title !== originalCard.title) {
                             await api.logActivity(cardId, user.id, `Cambió el título de "${originalCard.title}" a "${updates.title}"`, 'edit');
                         }
+
+                        // Description Changes
                         if (updates.description !== undefined && updates.description !== originalCard.description) {
                             await api.logActivity(cardId, user.id, 'Editó la descripción', 'edit');
                         }
-                        // Don't refetch everything if it's just a simple detail update
-                        // await get().fetchBoards(user.id);
+
+                        // Checklist Changes
+                        if (updates.checklist && Array.isArray(updates.checklist)) {
+                            const oldLen = originalCard.checklist?.length || 0;
+                            const newLen = updates.checklist.length;
+                            if (newLen > oldLen) {
+                                await api.logActivity(cardId, user.id, 'Añadió un elemento a la lista', 'edit');
+                            } else if (newLen < oldLen) {
+                                await api.logActivity(cardId, user.id, 'Eliminó un elemento de la lista', 'edit');
+                            } else {
+                                // Checking for completion toggle
+                                const toggledItem = updates.checklist.find((item, idx) =>
+                                    originalCard.checklist && originalCard.checklist[idx] && item.completed !== originalCard.checklist[idx].completed
+                                );
+                                if (toggledItem) {
+                                    const action = toggledItem.completed ? 'Completó' : 'Desmarcó';
+                                    await api.logActivity(cardId, user.id, `${action} "${toggledItem.text}"`, 'edit');
+                                }
+                            }
+                        }
+
+                        // Label Changes
+                        if (updates.labels && Array.isArray(updates.labels)) {
+                            const oldLabels = originalCard.labels || [];
+                            if (updates.labels.length > oldLabels.length) {
+                                const newLabel = updates.labels[updates.labels.length - 1];
+                                await api.logActivity(cardId, user.id, `Añadió la etiqueta "${newLabel.text}"`, 'edit');
+                            }
+                        }
+
+                        // Priority Changes
+                        if (updates.priority && updates.priority !== originalCard.priority) {
+                            await api.logActivity(cardId, user.id, `Cambió la prioridad a "${updates.priority}"`, 'edit');
+                        }
+
+                        // Refresh activities only
+                        await get().loadCardActivities(cardId);
                     }
                 } catch (error) {
                     console.error('Error updating card:', error);
@@ -519,18 +558,22 @@ export const useKanbanStore = create<KanbanState>()(
                                     if (card.id === cardId) {
                                         return {
                                             ...card,
-                                            activity: activities.map(a => ({
-                                                id: a.id,
-                                                text: a.text || '',
-                                                type: a.type || 'system',
-                                                timestamp: a.created_at,
-                                                params: a.params || {},
-                                                user: a.profiles ? {
-                                                    id: a.profiles.id,
-                                                    name: a.profiles.full_name,
-                                                    avatar: a.profiles.avatar_url
-                                                } : undefined
-                                            }))
+                                            activity: activities.map(a => {
+                                                // Handle profiles as both object and array depending on Supabase version/join depth
+                                                const profile = Array.isArray(a.profiles) ? a.profiles[0] : a.profiles;
+                                                return {
+                                                    id: a.id,
+                                                    text: a.text || '',
+                                                    type: a.type || 'system',
+                                                    timestamp: a.created_at,
+                                                    params: a.params || {},
+                                                    user: profile ? {
+                                                        id: profile.id,
+                                                        name: profile.full_name,
+                                                        avatar: profile.avatar_url
+                                                    } : undefined
+                                                };
+                                            })
                                         };
                                     }
                                     return card;
@@ -547,7 +590,11 @@ export const useKanbanStore = create<KanbanState>()(
                 try {
                     await api.addCardMember(cardId, userId);
                     const { user } = (await supabase.auth.getUser()).data;
-                    if (user) await get().fetchBoards(user.id);
+                    if (user) {
+                        await api.logActivity(cardId, user.id, 'Se unió a la tarjeta', 'addon');
+                        await get().fetchBoards(user.id);
+                        await get().loadCardActivities(cardId);
+                    }
                 } catch (error) {
                     console.error('Error adding card member:', error);
                 }
@@ -557,7 +604,11 @@ export const useKanbanStore = create<KanbanState>()(
                 try {
                     await api.removeCardMember(cardId, userId);
                     const { user } = (await supabase.auth.getUser()).data;
-                    if (user) await get().fetchBoards(user.id);
+                    if (user) {
+                        await api.logActivity(cardId, user.id, 'Dejó la tarjeta', 'addon');
+                        await get().fetchBoards(user.id);
+                        await get().loadCardActivities(cardId);
+                    }
                 } catch (error) {
                     console.error('Error removing card member:', error);
                 }
@@ -578,12 +629,25 @@ export const useKanbanStore = create<KanbanState>()(
             },
 
             updateColumn: async (columnId, updates) => {
+                const previousBoards = get().boards;
+                
+                // Optimistic update
+                set((state) => ({
+                    boards: state.boards.map(board => ({
+                        ...board,
+                        columns: board.columns.map(col => 
+                            col.id === columnId ? { ...col, ...updates } : col
+                        )
+                    }))
+                }));
+
                 try {
                     await api.updateColumn(columnId, updates);
                     const { user } = (await supabase.auth.getUser()).data;
                     if (user) await get().fetchBoards(user.id);
                 } catch (error) {
                     console.error('Error updating column:', error);
+                    set({ boards: previousBoards });
                 }
             },
 
