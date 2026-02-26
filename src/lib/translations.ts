@@ -12,6 +12,7 @@ export const translations = {
             confirm: "Confirmar",
             ready: "Listo",
             noDescription: "Sin descripción",
+            noDate: "Sin fecha",
             manageYourWorkspaces: "Gestiona tus tableros y espacios de trabajo.",
         },
         sidebar: {
@@ -196,8 +197,8 @@ export const translations = {
             priority: "Prioridad",
             tags: "Etiquetas",
             clearFilters: "Limpiar Filtros",
-            newest: "Vencimiento lejano",
-            oldest: "Próximos a vencer",
+            newest: "Vencimiento: más lejano",
+            oldest: "Vencimiento: más próximo",
         },
         calendar: {
             title: "Calendario",
@@ -301,6 +302,7 @@ export const translations = {
             confirm: "Confirm",
             ready: "Ready",
             noDescription: "No description",
+            noDate: "No date",
             manageYourWorkspaces: "Manage your boards and workspaces.",
         },
         sidebar: {
