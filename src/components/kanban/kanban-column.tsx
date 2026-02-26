@@ -270,16 +270,18 @@ export function KanbanColumnComponent({ column, isOverlay }: KanbanColumnProps) 
               // Grouping logic for date sorting
               const groups: { dateLabel: string; cards: KanbanCardType[] }[] = [];
               column.cards.forEach((card) => {
-                const date = card.createdAt ? new Date(card.createdAt) : new Date(0);
-                const isToday = date.toDateString() === new Date().toDateString();
-                const isYesterday = date.toDateString() === new Date(Date.now() - 86400000).toDateString();
-
                 let dateLabel = "";
-                if (card.createdAt) {
+                if (card.due_date) {
+                  const date = new Date(card.due_date);
+                  const isToday = date.toDateString() === new Date().toDateString();
+                  const isYesterday = date.toDateString() === new Date(Date.now() - 86400000).toDateString();
+                  const isTomorrow = date.toDateString() === new Date(Date.now() + 86400000).toDateString();
+
                   if (isToday) dateLabel = t('common.today') || "Hoy";
                   else if (isYesterday) dateLabel = t('common.yesterday') || "Ayer";
+                  else if (isTomorrow) dateLabel = t('calendar.tomorrow') || "Mañana";
                   else {
-                    dateLabel = date.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+                    dateLabel = date.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: date.getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined });
                   }
                 } else {
                   dateLabel = t('common.noDate') || "Sin fecha";

@@ -88,15 +88,21 @@ export function KanbanBoard() {
                 cards.sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority]);
             } else if (sortBy === 'newest') {
                 cards.sort((a, b) => {
-                    const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-                    const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-                    return dateB - dateA; // Newest first
+                    if (a.due_date && !b.due_date) return -1;
+                    if (!a.due_date && b.due_date) return 1;
+                    if (!a.due_date && !b.due_date) return 0;
+                    const dateA = new Date(a.due_date!).getTime();
+                    const dateB = new Date(b.due_date!).getTime();
+                    return dateB - dateA; // Furthest date first (or most recently added deadline)
                 });
             } else if (sortBy === 'oldest') {
                 cards.sort((a, b) => {
-                    const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-                    const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-                    return dateA - dateB; // Oldest first
+                    if (a.due_date && !b.due_date) return -1;
+                    if (!a.due_date && b.due_date) return 1;
+                    if (!a.due_date && !b.due_date) return 0;
+                    const dateA = new Date(a.due_date!).getTime();
+                    const dateB = new Date(b.due_date!).getTime();
+                    return dateA - dateB; // Closest date first
                 });
             }
 
