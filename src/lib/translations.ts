@@ -196,6 +196,8 @@ export const translations = {
             priority: "Prioridad",
             tags: "Etiquetas",
             clearFilters: "Limpiar Filtros",
+            newest: "Más nuevo a más antiguo",
+            oldest: "Más antiguo a más nuevo",
         },
         calendar: {
             title: "Calendario",
@@ -483,6 +485,8 @@ export const translations = {
             priority: "Priority",
             tags: "Tags",
             clearFilters: "Clear Filters",
+            newest: "Newest to Oldest",
+            oldest: "Oldest to Newest",
         },
         calendar: {
             title: "Calendar",
