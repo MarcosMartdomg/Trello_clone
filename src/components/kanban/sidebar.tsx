@@ -138,11 +138,45 @@ export function KanbanSidebar() {
         }
     }, [user, fetchBoards, fetchInvitations, addNotification])
 
+    // Unified Inbox Badge Logic (Invitations + Recommendations)
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    const today = new Date(now);
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const sevenDaysFromNow = new Date(now);
+    sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7);
+
+    const recommendationsCount = boards.flatMap(board => {
+        const isOwner = board.ownerId === user?.id;
+        const isPersonal = board.type === 'personal';
+        return board.columns.flatMap(column =>
+            column.cards.filter(card => {
+                const isMember = card.members.some(m => m.id === user?.id);
+                if (!(isMember || (isOwner && isPersonal))) return false;
+
+                const hasChecklist = card.checklist && card.checklist.length > 0;
+                const isCompleted = hasChecklist && card.checklist.every((i: any) => i.completed);
+                if (isCompleted) return false;
+
+                const dueDateValue = card.due_date ? new Date(card.due_date) : null;
+                if (dueDateValue) dueDateValue.setHours(0, 0, 0, 0);
+
+                const isUrgent = card.priority === 'urgent' || card.priority === 'high';
+                const isDueSoon = dueDateValue && dueDateValue <= sevenDaysFromNow;
+
+                return isUrgent || isDueSoon;
+            })
+        );
+    }).length;
+
+    const totalInboxNotifications = invitations.length + recommendationsCount;
+
     const navItems = [
         { id: "board", label: t('sidebar.myBoards'), icon: LayoutDashboard },
         { id: "tasks", label: t('sidebar.myTasks'), icon: CheckSquare },
         { id: "calendar", label: t('calendar.title'), icon: CalendarIcon },
-        { id: "inbox", label: t('sidebar.inbox'), icon: Inbox, badge: invitations.length > 0 ? invitations.length : undefined }
+        { id: "inbox", label: t('sidebar.inbox'), icon: Inbox, badge: totalInboxNotifications > 0 ? totalInboxNotifications : undefined }
     ]
 
     const handleCreateBoard = (name: string, type: 'personal' | 'shared' = 'personal') => {

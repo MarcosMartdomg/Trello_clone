@@ -190,6 +190,11 @@ export const translations = {
             errorAccepting: "Error al aceptar la invitación.",
             errorDeclining: "Error al rechazar la invitación.",
             requestSent: "Solicitud enviada",
+            dueToday: "Vence hoy",
+            dueTomorrow: "Vence mañana",
+            overdue: "Atascado / Atrasado",
+            pendingTasksAlert: "{count} tareas pendientes",
+            finishTasksAction: "¡Completa tus tareas!",
         },
         filters: {
             sortBy: "Ordenar por",
@@ -480,6 +485,11 @@ export const translations = {
             errorAccepting: "Error accepting the invitation.",
             errorDeclining: "Error declining the invitation.",
             requestSent: "Request sent",
+            dueToday: "Due today",
+            dueTomorrow: "Due tomorrow",
+            overdue: "Stuck / Overdue",
+            pendingTasksAlert: "{count} pending tasks",
+            finishTasksAction: "Finish your tasks!",
         },
         filters: {
             sortBy: "Sort by",
