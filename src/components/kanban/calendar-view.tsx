@@ -1,7 +1,7 @@
 "use client"
 
-import { useState } from "react"
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, User, Users } from "lucide-react"
+import { useState, useEffect } from "react"
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, User, Users, Plus } from "lucide-react"
 import { useKanbanStore } from "@/lib/store"
 import { useTranslation } from "@/hooks/use-translation"
 import { KanbanCard } from "@/lib/kanban-data"
@@ -12,6 +12,7 @@ import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSam
 export function CalendarView() {
     const [currentDate, setCurrentDate] = useState(new Date())
     const [selectedCard, setSelectedCard] = useState<KanbanCard | null>(null)
+    const [selectedDayDetail, setSelectedDayDetail] = useState<Date | null>(null)
     const { boards } = useKanbanStore()
     const { t, language } = useTranslation()
 
@@ -114,6 +115,19 @@ export function CalendarView() {
         }
     }
 
+    if (selectedDayDetail) {
+        return (
+            <DayView
+                date={selectedDayDetail}
+                cards={getCardsForDate(selectedDayDetail)}
+                onBack={() => setSelectedDayDetail(null)}
+                onSelectCard={setSelectedCard}
+                t={t}
+                getBoardTypeStyles={getBoardTypeStyles}
+            />
+        )
+    }
+
     return (
         <div className="flex flex-col h-full bg-background overflow-hidden">
             {/* Header */}
@@ -187,8 +201,9 @@ export function CalendarView() {
                             return (
                                 <div
                                     key={index}
+                                    onClick={() => setSelectedDayDetail(day)}
                                     className={cn(
-                                        "aspect-square border rounded-lg p-2 transition-all hover:shadow-md",
+                                        "aspect-square border rounded-lg p-2 transition-all hover:shadow-md cursor-pointer",
                                         isCurrentDay
                                             ? "border-primary bg-primary/5 ring-2 ring-primary/20"
                                             : isPast
@@ -196,7 +211,7 @@ export function CalendarView() {
                                                 : "border-border bg-card hover:border-primary/50"
                                     )}
                                 >
-                                    <div className="flex flex-col h-full">
+                                    <div className="flex flex-col h-full pointer-events-none">
                                         <div className={cn(
                                             "text-sm font-semibold mb-1",
                                             isCurrentDay ? "text-primary" : "text-foreground"
@@ -242,15 +257,152 @@ export function CalendarView() {
             </div>
 
             {/* Card Details Modal */}
-            {selectedCard && (
-                <CardDetailsModal
-                    card={selectedCard}
-                    columnTitle=""
-                    isOpen={true}
-                    isReadOnly={true}
-                    onClose={() => setSelectedCard(null)}
-                />
-            )}
+            {
+                selectedCard && (
+                    <CardDetailsModal
+                        card={selectedCard}
+                        columnTitle=""
+                        isOpen={true}
+                        isReadOnly={true}
+                        onClose={() => setSelectedCard(null)}
+                    />
+                )
+            }
+        </div>
+    )
+}
+
+function DayView({ date, cards, onBack, onSelectCard, t, getBoardTypeStyles }: any) {
+    const hours = Array.from({ length: 24 }, (_, i) => i)
+    const isTodayDate = isToday(date)
+    const [currentTime, setCurrentTime] = useState(new Date())
+
+    useEffect(() => {
+        const timer = setInterval(() => setCurrentTime(new Date()), 60000)
+        return () => clearInterval(timer)
+    }, [])
+
+    const getTasksForHour = (hour: number) => {
+        return cards.filter(({ card }: any) => {
+            if (!card.due_date) return false
+            const d = new Date(card.due_date)
+            return d.getHours() === hour
+        })
+    }
+
+    return (
+        <div className="flex flex-col h-full bg-background animate-in fade-in slide-in-from-bottom-4 duration-500">
+            {/* Header - Integrated & Sleek */}
+            <div className="flex items-center justify-between px-8 py-6 border-b border-border/40 bg-card/10 backdrop-blur-md sticky top-0 z-20">
+                <div className="flex items-center gap-6">
+                    <button
+                        onClick={onBack}
+                        className="group flex items-center justify-center w-12 h-12 rounded-2xl bg-secondary/80 hover:bg-primary hover:text-primary-foreground transition-all duration-300 hover:scale-110 active:scale-95 shadow-lg shadow-black/5 border border-border/50"
+                        title={t('calendar.backToMonth')}
+                    >
+                        <ChevronLeft className="w-6 h-6 transition-transform group-hover:-translate-x-0.5" />
+                    </button>
+                    <div className="space-y-1">
+                        <h2 className="text-3xl font-extrabold tracking-tight text-foreground uppercase">
+                            {format(date, 'EEEE, d MMMM')}
+                        </h2>
+                        <div className="flex items-center gap-2">
+                            <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-primary/10 text-primary text-[10px] font-black uppercase tracking-widest border border-primary/20">
+                                {t('calendar.dayView')}
+                            </span>
+                            <span className="w-1 h-1 rounded-full bg-muted-foreground/30" />
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                                {cards.length} {t('calendar.tasksOnDate', { count: cards.length.toString() })}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <button
+                    onClick={onBack}
+                    className="hidden sm:flex items-center gap-2 px-6 py-2.5 text-[11px] font-black uppercase tracking-widest rounded-2xl bg-secondary hover:bg-primary hover:text-white transition-all duration-300 shadow-sm border border-border/50 hover:border-primary/50 group"
+                >
+                    <CalendarIcon className="w-3.5 h-3.5 opacity-50 group-hover:opacity-100" />
+                    {t('calendar.backToMonth')}
+                </button>
+            </div>
+
+            {/* Timeline Content */}
+            <div className="flex-1 overflow-y-auto relative p-8 scrollbar-hide bg-gradient-to-b from-secondary/5 to-transparent">
+                <div className="max-w-5xl mx-auto bg-card/40 backdrop-blur-2xl rounded-[32px] border border-border/50 shadow-2xl shadow-primary/5 overflow-hidden">
+                    {/* Current Time Indicator - Sleeker */}
+                    {isTodayDate && (
+                        <div
+                            className="absolute left-0 right-0 z-30 pointer-events-none flex items-center gap-0"
+                            style={{
+                                top: `${(currentTime.getHours() * 80) + (currentTime.getMinutes() * 80 / 60) + 1}px`,
+                                transition: 'top 60s linear'
+                            }}
+                        >
+                            <div className="w-3 h-3 rounded-full bg-red-500 border-2 border-white dark:border-background shadow-[0_0_15px_rgba(239,68,68,0.8)] -ml-1.5 shrink-0" />
+                            <div className="flex-1 h-[2px] bg-gradient-to-r from-red-500 via-red-500/50 to-transparent" />
+                        </div>
+                    )}
+
+                    <div className="relative">
+                        {hours.map((hour) => {
+                            const hourTasks = getTasksForHour(hour)
+                            const isAM = hour < 12
+                            const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour
+                            const amPm = isAM ? 'AM' : 'PM'
+
+                            return (
+                                <div key={hour} className="group flex h-20 border-b border-border/20 last:border-0 relative hover:bg-primary/[0.02] transition-colors">
+                                    {/* Hour Label */}
+                                    <div className="w-24 shrink-0 flex items-center justify-center border-r border-border/20 bg-secondary/10">
+                                        <span className="text-[10px] font-black tracking-widest text-muted-foreground/40 group-hover:text-primary transition-all duration-300">
+                                            {displayHour} {amPm}
+                                        </span>
+                                    </div>
+
+                                    {/* Tasks Area */}
+                                    <div className="flex-1 p-2 flex gap-2 overflow-x-auto scrollbar-hide py-3">
+                                        {hourTasks.map(({ card, boardName, boardType }: any) => {
+                                            const styles = getBoardTypeStyles(boardType)
+                                            return (
+                                                <button
+                                                    key={card.id}
+                                                    onClick={() => onSelectCard(card)}
+                                                    className={cn(
+                                                        "h-full min-w-[200px] max-w-[280px] text-left px-5 py-3 rounded-2xl text-xs font-bold shadow-xl transition-all duration-300 hover:scale-[1.02] active:scale-95 hover:shadow-2xl",
+                                                        "text-white flex flex-col justify-between border border-white/20 group/task relative overflow-hidden",
+                                                        styles.bg
+                                                    )}
+                                                >
+                                                    {/* Glassy Overlay decoration */}
+                                                    <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-black/10 opacity-50" />
+                                                    <div className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/10 to-transparent opacity-0 group-hover/task:opacity-100 transition-opacity" />
+
+                                                    <div className="flex items-center gap-2 mb-2 relative z-10">
+                                                        <span className={cn("shrink-0 w-6 h-6 rounded-xl flex items-center justify-center bg-white/20 backdrop-blur-sm border border-white/20 shadow-sm")}>
+                                                            {boardType === 'personal'
+                                                                ? <User className="w-3 h-3" />
+                                                                : <Users className="w-3 h-3" />}
+                                                        </span>
+                                                        <span className="font-black uppercase tracking-widest text-[9px] opacity-80 truncate">{boardName}</span>
+                                                    </div>
+                                                    <span className="truncate leading-none text-sm tracking-tight relative z-10 block pr-2">
+                                                        {card.title}
+                                                    </span>
+                                                </button>
+                                            )
+                                        })}
+                                        {hourTasks.length === 0 && (
+                                            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <Plus className="w-4 h-4 text-primary/20" />
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )
+                        })}
+                    </div>
+                </div>
+            </div>
         </div>
     )
 }

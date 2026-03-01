@@ -246,7 +246,9 @@ export const translations = {
                 thursday: "Jue",
                 friday: "Vie",
                 saturday: "Sáb",
-            }
+            },
+            backToMonth: "Volver al mes",
+            dayView: "Vista diaria",
         },
         landing: {
             nav: {
@@ -552,7 +554,9 @@ export const translations = {
                 thursday: "Thu",
                 friday: "Fri",
                 saturday: "Sat",
-            }
+            },
+            backToMonth: "Back to month",
+            dayView: "Day view",
         },
         landing: {
             nav: {
