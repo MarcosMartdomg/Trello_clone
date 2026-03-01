@@ -423,7 +423,7 @@ export const useKanbanStore = create<KanbanState>()(
                     if (sourceColumnId !== destinationColumnId) {
                         const sourceTitle = activeBoard.columns.find(c => c.id === sourceColumnId)?.title || '';
                         const destTitle = activeBoard.columns.find(c => c.id === destinationColumnId)?.title || '';
-                        await api.logActivity(activeId, user.id, '', 'move', { from: sourceTitle, to: destTitle });
+                        await api.logActivity(activeId, user.id, 'board.movedCard', 'move', { from: sourceTitle, to: destTitle });
                     }
 
                     // Fetch to ensure sync is optional here if optimistic is reliable
@@ -491,20 +491,26 @@ export const useKanbanStore = create<KanbanState>()(
 
                         // Checklist Changes
                         if (updates.checklist && Array.isArray(updates.checklist)) {
-                            const oldLen = originalCard.checklist?.length || 0;
-                            const newLen = updates.checklist.length;
-                            if (newLen > oldLen) {
-                                await api.logActivity(cardId, user.id, 'Añadió un elemento a la lista', 'edit');
-                            } else if (newLen < oldLen) {
-                                await api.logActivity(cardId, user.id, 'Eliminó un elemento de la lista', 'edit');
+                            const oldChecklist = originalCard.checklist || [];
+                            const newChecklist = updates.checklist;
+
+                            if (newChecklist.length > oldChecklist.length) {
+                                const addedItem = newChecklist[newChecklist.length - 1];
+                                await api.logActivity(cardId, user.id, 'board.addedChecklistItem', 'edit', { text: addedItem.text });
+                            } else if (newChecklist.length < oldChecklist.length) {
+                                // Find which one was removed
+                                const removedItem = oldChecklist.find(oldItem => !newChecklist.some(newItem => newItem.id === oldItem.id));
+                                if (removedItem) {
+                                    await api.logActivity(cardId, user.id, 'board.removedChecklistItem', 'edit', { text: removedItem.text });
+                                }
                             } else {
                                 // Checking for completion toggle
-                                const toggledItem = updates.checklist.find((item, idx) =>
-                                    originalCard.checklist && originalCard.checklist[idx] && item.completed !== originalCard.checklist[idx].completed
+                                const toggledItem = newChecklist.find((item, idx) =>
+                                    oldChecklist[idx] && item.completed !== oldChecklist[idx].completed
                                 );
                                 if (toggledItem) {
-                                    const action = toggledItem.completed ? 'Completó' : 'Desmarcó';
-                                    await api.logActivity(cardId, user.id, `${action} "${toggledItem.text}"`, 'edit');
+                                    const key = toggledItem.completed ? 'board.completedChecklistItem' : 'board.uncompletedChecklistItem';
+                                    await api.logActivity(cardId, user.id, key, 'edit', { text: toggledItem.text });
                                 }
                             }
                         }
@@ -514,13 +520,18 @@ export const useKanbanStore = create<KanbanState>()(
                             const oldLabels = originalCard.labels || [];
                             if (updates.labels.length > oldLabels.length) {
                                 const newLabel = updates.labels[updates.labels.length - 1];
-                                await api.logActivity(cardId, user.id, `Añadió la etiqueta "${newLabel.text}"`, 'edit');
+                                await api.logActivity(cardId, user.id, 'board.addedLabel', 'edit', { text: newLabel.text });
+                            } else if (updates.labels.length < oldLabels.length) {
+                                const removedLabel = oldLabels.find(ol => !updates.labels?.some(nl => (nl.id || nl.text) === (ol.id || ol.text)));
+                                if (removedLabel) {
+                                    await api.logActivity(cardId, user.id, 'board.removedLabel', 'edit', { text: removedLabel.text });
+                                }
                             }
                         }
 
                         // Priority Changes
                         if (updates.priority && updates.priority !== originalCard.priority) {
-                            await api.logActivity(cardId, user.id, `Cambió la prioridad a "${updates.priority}"`, 'edit');
+                            await api.logActivity(cardId, user.id, 'board.changedPriority', 'edit', { priority: updates.priority });
                         }
 
                         // Refresh activities only
@@ -573,7 +584,7 @@ export const useKanbanStore = create<KanbanState>()(
                                                     id: a.id,
                                                     text: a.text || '',
                                                     type: a.type || 'system',
-                                                    timestamp: a.created_at,
+                                                    timestamp: a.timestamp,
                                                     params: a.params || {},
                                                     user: profile ? {
                                                         id: profile.id,
@@ -599,7 +610,7 @@ export const useKanbanStore = create<KanbanState>()(
                     await api.addCardMember(cardId, userId);
                     const { user } = (await supabase.auth.getUser()).data;
                     if (user) {
-                        await api.logActivity(cardId, user.id, 'Se unió a la tarjeta', 'addon');
+                        await api.logActivity(cardId, user.id, 'board.joinedCard', 'addon');
                         await get().fetchBoards(user.id);
                         await get().loadCardActivities(cardId);
                     }
@@ -613,7 +624,7 @@ export const useKanbanStore = create<KanbanState>()(
                     await api.removeCardMember(cardId, userId);
                     const { user } = (await supabase.auth.getUser()).data;
                     if (user) {
-                        await api.logActivity(cardId, user.id, 'Dejó la tarjeta', 'addon');
+                        await api.logActivity(cardId, user.id, 'board.leftCard', 'addon');
                         await get().fetchBoards(user.id);
                         await get().loadCardActivities(cardId);
                     }

@@ -470,7 +470,8 @@ export const api = {
                 user_id: userId,
                 text,
                 type,
-                params: params || {}
+                params: params || {},
+                timestamp: new Date().toISOString()
             }]);
         if (error) {
             console.error("api: logActivity error", error);
@@ -485,7 +486,7 @@ export const api = {
                 profiles (id, full_name, avatar_url)
             `)
             .eq('card_id', cardId)
-            .order('created_at', { ascending: false });
+            .order('timestamp', { ascending: false });
 
         if (error) {
             console.error("api: fetchCardActivities error", error);
